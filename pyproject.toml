@@ -1,7 +1,28 @@
 [project]
 name = "utxoracle"
 version = "0.1.0"
-description = "Add your description here"
+description = "Bitcoin-native price oracle with real-time mempool analysis"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "fastapi>=0.104.1",
+    "uvicorn[standard]>=0.24.0",
+    "pyzmq>=25.1.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-watch>=4.2.0",
+    "pytest-testmon>=2.1.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.6",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = []  # No packages yet (modules will be in live/ folder later)
