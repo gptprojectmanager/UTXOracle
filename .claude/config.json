@@ -1,0 +1,25 @@
+{
+  "tdd": {
+    "enabled": true,
+    "autoGenerateTests": true,
+    "coverageThreshold": 80,
+    "phases": {
+      "red": { "enforceFailure": true },
+      "green": { "minimalCode": true },
+      "refactor": { "maintainCoverage": true }
+    }
+  },
+  "installation": {
+    "ccpm_integration": true,
+    "tdd_enhanced": true,
+    "install_method": "manual_glue_integration",
+    "install_date": "2025-09-22T19:40:00Z",
+    "glue_version": "extracted_from_claude_pdd_cli",
+    "environment": "devteam1"
+  },
+  "project": {
+    "name": "devteam1",
+    "description": "Complete CCPM + TDD-Guard + Glue integration environment",
+    "workflow_type": "spec_driven_tdd"
+  }
+}
