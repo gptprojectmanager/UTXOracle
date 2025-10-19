@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UTXOracle Live - Mempool Price Visualization</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>UTXOracle Live</h1>
+        <p>Real-time Bitcoin price estimation from mempool data</p>
+    </header>
+
+    <main>
+        <section id="price-display">
+            <h2>Current Price Estimate</h2>
+            <div id="current-price">Connecting...</div>
+        </section>
+
+        <section id="visualization">
+            <canvas id="mempool-canvas"></canvas>
+        </section>
+
+        <section id="stats">
+            <div id="transaction-count">Transactions: 0</div>
+            <div id="confidence-score">Confidence: 0%</div>
+        </section>
+    </main>
+
+    <!-- Task 05: Visualization Renderer - Agent: visualization-renderer -->
+    <script src="mempool-viz.js"></script>
+</body>
+</html>

@@ -178,6 +178,69 @@ def _construct_stencil(self):
 
 ## Communication Style
 
+## 🛡️ TDD Guard Protocol (Strict File Mapping)
+
+You operate in a TDD-enforced environment with pre-tool hooks. When implementing code AFTER `tdd-guard` has written tests:
+
+### If Hook Warns About Missing Tests:
+
+1. **Identify your target file**: Which file are you implementing? (e.g., `live/backend/tx_processor.py`)
+2. **Find SPECIFIC test file**: Extract module name and check for `tests/test_<module>.py`
+   - Implementing `tx_processor.py` → Check `tests/test_tx_processor.py`
+   - Implementing `zmq_listener.py` → Check `tests/test_zmq_listener.py`
+   - Implementing `api.py` → Check `tests/test_api.py`
+3. **Verify test exists for THIS MODULE**:
+   - ✅ If **specific test file exists** → You're in GREEN phase for THIS module
+   - ❌ If **specific test file missing** → You're in RED phase, STOP
+
+### Example Response to Hook Warning:
+
+⚠️ **Hook**: "No test found for implementation of tx_processor.py"
+
+✅ **Correct Response**:
+```
+Checking for specific test file: tests/test_tx_processor.py
+[runs: ls tests/test_tx_processor.py]
+✓ File exists with 10 tests (written in RED phase by tdd-guard)
+I'm now in GREEN phase for tx_processor.py - implementing code to make those tests pass.
+Proceeding with implementation.
+```
+
+❌ **WRONG Response** (too generic):
+```
+Tests exist in tests/ directory → proceeding   # ← NO! Must be specific test file
+```
+
+### Verification Script:
+
+```bash
+# Before implementing live/backend/X.py, run:
+MODULE_NAME=$(basename "$TARGET_FILE" .py)
+TEST_FILE="tests/test_${MODULE_NAME}.py"
+
+if [ -f "$TEST_FILE" ]; then
+    echo "✓ Specific test file exists: $TEST_FILE"
+    echo "GREEN phase - proceeding with implementation"
+else
+    echo "✗ Specific test file missing: $TEST_FILE"
+    echo "RED phase - stopping, need tests first"
+    exit 1
+fi
+```
+
+### Key Points:
+- **File-to-test mapping MUST be 1:1** (tx_processor.py → test_tx_processor.py)
+- **Generic "tests exist" is NOT sufficient** - must verify YOUR specific test
+- **Show the verification step** - run `ls tests/test_X.py` to prove it exists
+- **Reference test count** - show how many tests exist for this module (e.g., "10 tests in test_tx_processor.py")
+
+### Anti-Pattern (DO NOT DO THIS):
+
+❌ "Tests exist somewhere in tests/ directory" → Too vague, can bypass TDD
+❌ "test_api.py exists" when implementing tx_processor.py → Wrong module
+❌ "Trust me, tests exist" → No verification shown
+
+
 - Explain statistical concepts clearly
 - Show histogram visualizations (ASCII art)
 - Compare results to UTXOracle.py reference
@@ -196,6 +259,22 @@ L **Will NOT implement**:
 - WebSocket streaming (Task 04)
 - Visualization (Task 05)
 - Historical data storage
+
+## MCP Tools Configuration
+
+**✅ Use These Tools**:
+- `mcp__context7__*`: Library documentation (numpy/decimal if needed, statistical algorithms)
+- `mcp__claude-self-reflect__*`: Conversation memory for UTXOracle algorithm insights
+- `mcp__serena__*`: Code navigation (UTXOracle.py Steps 5-11, histogram logic)
+- `mcp__ide__*`: Python diagnostics
+
+**❌ Ignore These Tools** (not relevant for this task):
+- `mcp__github__*`: GitHub operations (not needed for implementation)
+
+**⚠️ Use Only If Stuck**:
+- `mcp__gemini-cli__*`: Complex convergence algorithm debugging (last resort)
+
+**Token Savings**: ~12,000 tokens by avoiding unused GitHub tools
 
 ## Resources
 

@@ -8,6 +8,7 @@ dependencies = [
     "fastapi>=0.104.1",
     "uvicorn[standard]>=0.24.0",
     "pyzmq>=25.1.1",
+    "pydantic>=2.12.3",
 ]
 
 [project.optional-dependencies]
@@ -26,3 +27,18 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = []  # No packages yet (modules will be in live/ folder later)
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "pytest-cov>=7.0.0",
+    "pytest-testmon>=2.1.3",
+    "pytest-watch>=4.2.0",
+    "ruff>=0.14.1",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

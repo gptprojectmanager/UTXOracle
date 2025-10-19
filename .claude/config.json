@@ -18,8 +18,8 @@
     "environment": "devteam1"
   },
   "project": {
-    "name": "devteam1",
-    "description": "Complete CCPM + TDD-Guard + Glue integration environment",
+    "name": "UTXOracle",
+    "description": "Bitcoin-native price oracle using mempool analysis",
     "workflow_type": "spec_driven_tdd"
   }
 }

@@ -62,9 +62,19 @@ Check the live visual version of UTXOracle here:
 
 ## 🛠 Structure
 
-- `UTXOracle.py` – The main reference implementation
-- `v8/`, `v9/` – Previous algorithm versions
-- `start9/` – Packaging for Start9 node integration
+- `UTXOracle.py` – The main reference implementation (v9.1)
+- `archive/` – Historical versions (v7, v8, v9, start9)
+- `live/` – Real-time mempool analysis system (in development)
+- `docs/` – Algorithm documentation and task specifications
+
+---
+
+## 📚 Documentation
+
+- **[CHANGELOG_SPEC.md](CHANGELOG_SPEC.md)** – Detailed version evolution (v7→v8→v9→v9.1) with trigger-response-philosophy analysis
+- **[CLAUDE.md](CLAUDE.md)** – Claude Code development instructions
+- **[MODULAR_ARCHITECTURE.md](MODULAR_ARCHITECTURE.md)** – Black box module design philosophy
+- **[TECHNICAL_SPEC.md](TECHNICAL_SPEC.md)** – MVP implementation plan for live system
 
 ---
 

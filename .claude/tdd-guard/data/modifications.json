@@ -1,0 +1,11 @@
+{
+  "session_id": "dc6b9812-917f-4a47-a887-3ce12b1c2ce5",
+  "transcript_path": "/home/sam/.claude/projects/-media-sam-1TB-UTXOracle/dc6b9812-917f-4a47-a887-3ce12b1c2ce5.jsonl",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "/media/sam/1TB/UTXOracle/tests/test_zmq_listener.py",
+    "old_string": "        # Act: Stream transactions\n        import time\n        start_time = time.time()\n        transactions = []\n        \n        async for i, tx in enumerate(listener.stream_transactions()):\n            transactions.append(tx)\n            if i >= 2:  # Collect 3 transactions\n                break",
+    "new_string": "        # Act: Stream transactions\n        import time\n        start_time = time.time()\n        transactions = []\n\n        i = 0\n        async for tx in listener.stream_transactions():\n            transactions.append(tx)\n            if i >= 2:  # Collect 3 transactions\n                break\n            i += 1"
+  }
+}

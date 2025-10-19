@@ -234,3 +234,24 @@ package-lock.json
 # OS files
 .DS_Store
 Thumbs.db
+
+# UTXOracle specific - Temporary files
+*.tmp
+*.bak
+*~
+debug_*.log
+*.trace
+
+# UTXOracle specific - Test artifacts (keep only historical_data/)
+# Exclude test HTML outputs (but keep historical_data/)
+UTXOracle_test_*.html
+test_output_*.json
+
+# UTXOracle specific - Experiment files
+experiments/
+scratch/
+playground/
+
+# Claude Code logs (keep in .claude/logs/ but ignore at root)
+/claude_*.log
+/session_*.log

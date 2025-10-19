@@ -1,0 +1,70 @@
+/**
+ * UTXOracle Live - Styles
+ */
+
+:root {
+    --bg-color: #0a0e27;
+    --text-color: #e0e6ed;
+    --accent-color: #f7931a;
+    --secondary-color: #4a90e2;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Monaco', 'Courier New', monospace;
+    background: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+header {
+    padding: 2rem;
+    text-align: center;
+    border-bottom: 2px solid var(--accent-color);
+}
+
+header h1 {
+    color: var(--accent-color);
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+main {
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+#price-display {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+#current-price {
+    font-size: 3rem;
+    color: var(--accent-color);
+    font-weight: bold;
+}
+
+#visualization {
+    margin: 2rem 0;
+    display: flex;
+    justify-content: center;
+}
+
+#mempool-canvas {
+    border: 1px solid var(--secondary-color);
+    background: #000;
+}
+
+#stats {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 2rem;
+    font-size: 1.2rem;
+}

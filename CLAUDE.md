@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**📘 For Skill Implementation in Other Projects**: See `.claude/SKILLS_FRAMEWORK_BLUEPRINT.md` - Portable meta-framework for implementing Skills in ANY repository.
+
 ## Project Overview
 
 UTXOracle is a Bitcoin-native, exchange-free price oracle that calculates the market price of Bitcoin directly from blockchain data. It analyzes on-chain transactions using statistical clustering to derive BTC/USD prices without relying on external exchange APIs.
@@ -11,6 +13,9 @@ UTXOracle is a Bitcoin-native, exchange-free price oracle that calculates the ma
 - Single-file reference implementation for clarity and transparency
 - Direct Bitcoin Core RPC connection only
 - Privacy-first: no external price feeds
+
+**🎯 Development Philosophy**: KISS (Keep It Simple) + YAGNI (You Ain't Gonna Need It)
+→ See [Development Principles](#development-principles) for detailed blueprint
 
 ## Running UTXOracle
 
@@ -81,6 +86,8 @@ See **MODULAR_ARCHITECTURE.md** and **TECHNICAL_SPEC.md** for planned modular Ru
 
 ## File Structure
 
+**⚠️ IMPORTANT**: When directory structure changes, update this section immediately.
+
 ```
 UTXOracle/
 ├── pyproject.toml            # UV workspace root
@@ -89,7 +96,7 @@ UTXOracle/
 ├── UTXOracle.py              # Reference implementation v9.1 (IMMUTABLE)
 │
 ├── .claude/                  # Claude Code configuration
-│   ├── agents/               # Specialized subagents (complex reasoning)
+│   ├── agents/               # Specialized subagents (6 total)
 │   │   ├── bitcoin-onchain-expert.md      # Task 01 - ZMQ listener
 │   │   ├── transaction-processor.md       # Task 02 - Binary parsing
 │   │   ├── mempool-analyzer.md            # Task 03 - Price estimation
@@ -98,36 +105,58 @@ UTXOracle/
 │   │   └── tdd-guard.md                   # TDD enforcement
 │   ├── skills/               # Template-driven automation (token efficiency)
 │   │   ├── pytest-test-generator/         # Test boilerplate (83% savings)
-│   │   └── github-workflow/               # PR/Issue templates (79% savings)
+│   │   ├── github-workflow/               # PR/Issue templates (79% savings)
+│   │   ├── pydantic-model-generator/      # Pydantic schema automation (75% savings)
+│   │   ├── bitcoin-rpc-connector/         # Bitcoin Core RPC setup (60% savings)
+│   │   ├── SKILLS_QUICK_REFERENCE.md      # One-page cheat sheet
+│   │   └── SKILLS_ANALYSIS.md             # Skills token economics
 │   ├── prompts/
 │   │   └── utxoracle-system.md            # Orchestration rules
-│   └── settings.local.json   # Permissions & hooks
+│   ├── tdd-guard/            # TDD enforcement data
+│   │   └── data/             # Coverage reports, test history
+│   ├── logs/                 # Claude Code session logs
+│   ├── commands/             # Custom slash commands
+│   ├── settings.local.json   # Permissions & hooks
+│   ├── MCP_OPTIMIZATION.md   # MCP tools configuration guide
+│   ├── CONSISTENCY_CHECK.md  # Structure validation report
+│   ├── SKILLS_ANALYSIS.md    # Extended Skills analysis
+│   └── SKILLS_FRAMEWORK_BLUEPRINT.md  # 📘 META: Portable framework for ANY project
 │
-├── core/                     # Shared algorithm modules (future)
+├── .serena/                  # Serena MCP (code navigation memory)
+│   └── memories/             # Project knowledge base
+│
+├── .specify/                 # SpecKit (task management) - optional
+│   ├── memory/               # Specification memory
+│   ├── templates/            # Document templates
+│   └── scripts/              # Automation scripts
+│
+├── core/                     # Shared algorithm modules (FUTURE - not yet created)
 │   ├── __init__.py
 │   ├── histogram.py          # Steps 5-7 (extracted from UTXOracle.py)
 │   ├── stencil.py            # Steps 8-9
 │   ├── convergence.py        # Step 11
 │   └── bitcoin_rpc.py        # Step 2
 │
-├── live/                     # Mempool live system (implementation target)
-│   ├── backend/
-│   │   ├── zmq_listener.py   # Bitcoin ZMQ interface (Task 01)
-│   │   ├── tx_processor.py   # Transaction parser/filter (Task 02)
-│   │   ├── mempool_analyzer.py  # Real-time price estimation (Task 03)
-│   │   ├── api.py            # FastAPI WebSocket server (Task 04)
-│   │   ├── models.py         # Data models (Pydantic)
-│   │   └── config.py         # Configuration
-│   ├── frontend/
-│   │   ├── index.html        # Main page
-│   │   ├── mempool-viz.js    # Canvas 2D renderer (MVP)
-│   │   ├── mempool-viz-webgl.js  # Three.js renderer (production)
-│   │   └── styles.css        # Styling
-│   └── shared/
-│       └── models.py         # Shared data structures
+├── live/                     # Mempool live system (CURRENT IMPLEMENTATION TARGET)
+│   ├── backend/              # ✅ Created, ready for implementation
+│   │   ├── __init__.py
+│   │   ├── zmq_listener.py   # Task 01 - Bitcoin ZMQ interface (TODO)
+│   │   ├── mempool_analyzer.py  # Task 03 - Real-time price estimation (TODO)
+│   │   ├── api.py            # Task 04 - FastAPI WebSocket server (TODO)
+│   │   ├── models.py         # Data models (Pydantic) (TODO)
+│   │   └── config.py         # Configuration (TODO)
+│   ├── frontend/             # ✅ Created, ready for implementation
+│   │   ├── __init__.py
+│   │   ├── index.html        # Main page (scaffold created)
+│   │   ├── mempool-viz.js    # Canvas 2D renderer (Task 05 MVP) (TODO)
+│   │   ├── mempool-viz-webgl.js  # Three.js renderer (Task 05 production) (TODO)
+│   │   └── styles.css        # Styling (scaffold created)
+│   └── shared/               # ✅ Created
+│       ├── __init__.py
+│       └── models.py         # Shared data structures (TODO)
 │
 ├── scripts/                  # Utilities
-│   ├── utxoracle_batch.py    # Batch processor
+│   ├── utxoracle_batch.py    # Batch processor (parallel date range processing)
 │   └── README.md
 │
 ├── docs/                     # Documentation
@@ -143,14 +172,20 @@ UTXOracle/
 │   ├── api.md                # WebSocket API spec (future)
 │   └── deployment.md         # Deployment guide (future)
 │
-├── tests/
-│   ├── test_core/            # Core algorithm tests
-│   ├── test_live/            # Mempool system tests
-│   ├── integration/          # Integration tests
-│   └── fixtures/             # Test data
+├── tests/                    # ✅ Created, ready for TDD
+│   ├── __init__.py
+│   ├── conftest.py           # Pytest shared fixtures
+│   ├── test_core/            # Core algorithm tests (TODO)
+│   │   └── __init__.py
+│   ├── test_live/            # Backend tests (TODO)
+│   │   └── __init__.py
+│   ├── integration/          # End-to-end tests (TODO)
+│   │   └── __init__.py
+│   └── fixtures/             # Test data (TODO)
+│       └── __init__.py
 │
 ├── historical_data/
-│   └── html_files/           # 672 HTML files (Dec 2023 - Oct 2025)
+│   └── html_files/           # 672 HTML files (Dec 15, 2023 → Oct 17, 2025)
 │
 ├── archive/
 │   ├── v9/                   # Previous versions
@@ -158,11 +193,20 @@ UTXOracle/
 │   ├── v7/
 │   └── start9/
 │
+├── .venv/                    # Python virtual environment (DO NOT COMMIT)
+├── .git/                     # Git repository
+├── .github/                  # Cleanup automation tools
+│   ├── CLEANUP_CHECKLIST.md  # Quick reference for pre-commit cleanup
+│   ├── pre-commit.hook       # Optional automated validation hook
+│   └── README.md             # How to use cleanup tools
+│
 ├── CLAUDE.md                 # THIS FILE - Claude Code instructions
+├── CHANGELOG_SPEC.md         # Formal version evolution (v7→v8→v9→v9.1)
 ├── MODULAR_ARCHITECTURE.md   # Black box module design
 ├── TECHNICAL_SPEC.md         # MVP KISS implementation plan
 ├── TECHNICAL_SPEC_ADVANCED.md  # Production features (WebGL, Rust, etc.)
 ├── SKILL_SUMMARY.md          # Agent Skills vs Subagents analysis
+├── SKILL_SUMMARY_VIDEO_TRANSCRIPT_SUMMARY.md  # Skills video notes (uncommitted)
 ├── HISTORICAL_DATA.md        # 672 days of historical analysis
 └── README.md
 ```
@@ -183,15 +227,23 @@ Specialized agents for deep domain expertise and multi-step workflows.
 
 **Usage**: Invoke via Claude Code for complex implementation tasks.
 
-### **Skills** (2) - Template-Driven Automation
-Lightweight templates for repetitive operations with 70-80% token savings.
+### **Skills** (4) - Template-Driven Automation
+Lightweight templates for repetitive operations with 60-83% token savings.
 
-| Skill | Purpose | Token Savings |
-|-------|---------|---------------|
-| pytest-test-generator | Auto-generate test boilerplate | 83% (3,000→500) |
-| github-workflow | PR/Issue/Commit templates | 79% (18,900→4,000) |
+| Skill | Purpose | Token Savings | Status |
+|-------|---------|---------------|--------|
+| pytest-test-generator | Auto-generate test boilerplate | 83% (3,000→500) | ✅ |
+| github-workflow | PR/Issue/Commit templates | 79% (18,900→4,000) | ✅ |
+| pydantic-model-generator | Pydantic data models with validators | 75% (2,000→500) | ✅ |
+| bitcoin-rpc-connector | Bitcoin Core RPC client setup | 60% (2,500→1,000) | ✅ |
 
-**Usage**: Automatically triggered by keywords like "generate tests" or "create PR".
+**Total Skill Savings**: ~20,400 tokens/task (77% reduction on template-driven operations)
+
+**Usage**: Automatically triggered by keywords:
+- "generate tests" → pytest-test-generator
+- "create PR" → github-workflow
+- "pydantic model" → pydantic-model-generator
+- "bitcoin rpc" → bitcoin-rpc-connector
 
 ### **Modus Operandi**
 See `.claude/prompts/utxoracle-system.md` for:
@@ -201,9 +253,37 @@ See `.claude/prompts/utxoracle-system.md` for:
 - Checkpoint management
 - Error handling protocols
 
-**Combined Token Savings**: ~87,000 tokens per full pipeline (27% reduction)
+**Combined Token Savings**: ~20,400 tokens/task (Skills) + MCP optimization (~67,200 tokens/pipeline) = **87,600 tokens total**
 
 ## Development Principles
+
+### 🎯 KISS & YAGNI Blueprint (ALWAYS REMEMBER!)
+
+#### **KISS** - Keep It Simple, Stupid
+- **Choose boring technology**: Python, not Rust (until needed)
+- **Avoid premature optimization**: Make it work, then make it fast
+- **One module, one purpose**: Each file does ONE thing well
+- **Minimize dependencies**: Every dependency is technical debt
+- **Clear over clever**: Code that a junior can understand beats "smart" code
+
+#### **YAGNI** - You Ain't Gonna Need It
+- **Don't build for hypothetical futures**: Solve TODAY's problem
+- **No unused Skills**: 4 Skills are enough (don't add the other 3)
+- **No generic solutions**: Specific beats flexible
+- **Delete dead code**: If unused for 2 weeks, remove it
+- **Resist abstraction temptation**: 3 similar things ≠ need for abstraction
+
+#### **Applied to UTXOracle**
+✅ **DO**: Use existing 6 subagents + 4 skills
+✅ **DO**: Write simple Python that works
+✅ **DO**: Focus on Tasks 01-05 implementation
+❌ **DON'T**: Create more Skills "just in case"
+❌ **DON'T**: Over-engineer for "future scalability"
+❌ **DON'T**: Abstract before you have 3+ real use cases
+
+**Remember**: The best code is no code. The second best is deleted code. The third best is simple code.
+
+---
 
 ### Vibe Coding Architecture (Eskil Steenberg)
 
@@ -259,6 +339,218 @@ This project follows "black box" architecture principles for maintainability and
 - Core algorithm (histogram, stencil, convergence) can be rewritten in Rust or Cython
 - Replaces Python modules without touching ZMQ/WebSocket/frontend
 - Black box interface ensures seamless swap
+
+---
+
+## 🧹 Task Completion Protocol
+
+**IMPORTANT**: Run this checklist BEFORE marking any task as complete or creating a commit.
+
+### ✅ Pre-Commit Cleanup Checklist
+
+When completing a task, **ALWAYS** do the following cleanup:
+
+#### 1. Remove Temporary Files
+```bash
+# Check for temporary files
+find . -type f \( -name "*.tmp" -o -name "*.bak" -o -name "*~" -o -name "*.swp" \)
+
+# Remove if found (review first!)
+# find . -type f \( -name "*.tmp" -o -name "*.bak" -o -name "*~" \) -delete
+```
+
+#### 2. Clean Python Cache
+```bash
+# Remove Python cache (auto-regenerates)
+find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
+find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null
+find . -type f -name "*.pyc" -delete
+```
+
+#### 3. Remove Debug/Test Outputs
+```bash
+# Check for test artifacts
+ls -la *.html *.json *.log 2>/dev/null | grep -v "UTXOracle_"
+
+# Move to archive if historical data, delete if temporary
+```
+
+#### 4. Code Cleanup (Manual Review)
+
+**Remove**:
+- ❌ Commented-out code blocks (if >1 week old)
+- ❌ `print()` debug statements
+- ❌ Unused imports (`ruff check --select F401`)
+- ❌ TODO comments that are now resolved
+- ❌ Dead functions/classes (never called)
+
+**Fix**:
+- ✅ Run linter: `ruff check .` (if available)
+- ✅ Format code: `ruff format .` (if available)
+- ✅ Type hints: Add where missing
+
+#### 5. Documentation Cleanup
+
+**Consolidate**:
+- ❌ Delete draft `.md` files not referenced anywhere
+- ❌ Remove obsolete documentation
+- ✅ Update CLAUDE.md if structure changed
+- ✅ Update relevant task files in `docs/tasks/`
+
+**Check**:
+```bash
+# Find unreferenced markdown files
+find docs -name "*.md" -type f
+
+# Review each - is it still needed?
+```
+
+#### 6. Git Status Review
+
+```bash
+# Check what's about to be committed
+git status
+
+# Review untracked files - keep or delete?
+git status --short | grep "^??"
+
+# Check for large files (>1MB)
+find . -type f -size +1M -not -path "./.git/*" -not -path "./historical_data/*"
+```
+
+#### 7. Update .gitignore (If Needed)
+
+If you find temporary files that shouldn't be committed:
+```bash
+# Add patterns to .gitignore
+echo "*.tmp" >> .gitignore
+echo "debug_*.log" >> .gitignore
+echo ".DS_Store" >> .gitignore
+```
+
+---
+
+### 🚨 Before Every Commit
+
+**Mandatory checks** (MUST pass before committing):
+
+```bash
+# 1. No uncommitted temporary files
+[ -z "$(find . -name '*.tmp' -o -name '*.bak')" ] && echo "✅ No temp files" || echo "❌ Temp files found"
+
+# 2. Tests pass (if applicable)
+# uv run pytest tests/ && echo "✅ Tests pass" || echo "❌ Tests fail"
+
+# 3. No obvious debug code
+! git diff --cached | grep -E "(print\(|console\.log|debugger|import pdb)" && echo "✅ No debug code" || echo "⚠️  Debug code in commit"
+
+# 4. File count reasonable
+CHANGED=$(git diff --cached --name-only | wc -l)
+[ $CHANGED -lt 20 ] && echo "✅ Changed files: $CHANGED" || echo "⚠️  Many files: $CHANGED (review needed)"
+```
+
+---
+
+### 🗑️ What to DELETE vs KEEP
+
+#### ❌ DELETE (Always)
+- Temporary files (`.tmp`, `.bak`, `~`)
+- Python cache (`__pycache__`, `.pyc`)
+- Test cache (`.pytest_cache`, `.coverage`)
+- Debug logs (`debug_*.log`, `*.trace`)
+- Screenshots for debugging (unless documented)
+- Experiment files not integrated (`test_*.py` outside tests/)
+- Commented code blocks >1 week old
+- Unused imports
+- TODOs marked DONE
+
+#### ✅ KEEP (Always)
+- Historical data (`historical_data/html_files/`)
+- Documentation (if referenced in CLAUDE.md or README)
+- Tests (`tests/**/*.py`)
+- Configuration files (`.claude/`, `pyproject.toml`, `.gitignore`)
+- Source code in `live/`, `core/`, `scripts/`
+- `uv.lock` (dependency lockfile - COMMIT THIS!)
+
+#### ⚠️ REVIEW CASE-BY-CASE
+- Jupyter notebooks (`.ipynb`) - Keep if documented, archive if experimental
+- Large binary files (>1MB) - Consider git LFS or external storage
+- Generated HTML files - Keep if part of output, delete if test artifacts
+- Log files - Keep if needed for debugging, delete if >1 week old
+
+---
+
+### 📝 Post-Cleanup Commit Message
+
+After cleanup, commit with clear message:
+
+```bash
+# Good commit message pattern:
+git commit -m "[Task XX] Module: Description
+
+Changes:
+- Implemented: feature.py
+- Tests: test_feature.py (coverage: 85%)
+- Cleanup: Removed 3 temp files, 2 unused imports
+
+🤖 Generated with Claude Code
+Co-Authored-By: Claude <noreply@anthropic.com>"
+```
+
+---
+
+### 🔄 Periodic Cleanup (Weekly)
+
+Run this every Friday or after completing a major task:
+
+```bash
+# Find files not modified in 2 weeks
+find . -type f -mtime +14 -not -path "./.git/*" -not -path "./historical_data/*"
+
+# Review and archive or delete
+```
+
+**Check for**:
+- Orphaned files (not referenced anywhere)
+- Old experiment branches (`git branch --merged`)
+- Unused Skills (check usage in logs)
+- Outdated documentation
+
+---
+
+### 🎯 Cleanup Automation (Optional)
+
+Create `.git/hooks/pre-commit` for automatic checks:
+
+```bash
+#!/bin/bash
+# .git/hooks/pre-commit
+
+echo "🧹 Running pre-commit cleanup..."
+
+# Remove Python cache
+find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
+
+# Check for temp files
+TEMP_FILES=$(find . -name "*.tmp" -o -name "*.bak" 2>/dev/null)
+if [ -n "$TEMP_FILES" ]; then
+    echo "❌ Temporary files found:"
+    echo "$TEMP_FILES"
+    echo "Remove them before committing"
+    exit 1
+fi
+
+# Check for debug code
+if git diff --cached | grep -E "(print\(|console\.log|debugger)"; then
+    echo "⚠️  Debug code detected in staged files"
+    echo "Review and remove before committing (or use --no-verify to skip)"
+    # Don't block commit, just warn
+fi
+
+echo "✅ Pre-commit checks passed"
+```
+
+---
 
 ## Bitcoin Node Connection
 
