@@ -260,7 +260,147 @@
       "timestamp": "2025-10-20T19:35:59.586618",
       "command": "cat > /media/sam/1TB/UTXOracle/docs/T093_validation_report.md << 'EOF'\n## T093 Validation Results\n\n**Date**: 2025-10-20 19:35 UTC+1\n**Validator**: Claude Code (Sonnet 4.5)\n\n---\n\n### Bitcoin Core Mempool Status\n\n- **Mempool Size**: 7,739 transactions (at time of validation)\n- **Mempool Bytes**: 2,655,012 bytes\n- **Total Fee**: 0.07240710 BTC\n- **Status**: ✅ Bitcoin Core is running and operational\n\n---\n\n### Frontend Statistics (from UI)\n\n- **Received**: 0\n- **Filtered**: 0\n- **Active**: 0\n- **Uptime**: 0s\n- **Price**: $---,--- (no data)\n- **Confidence**: -- (-)\n\n---\n\n### Validation Analysis\n\n**Bitcoin Core Mempool**: 7,739 transactions  \n**Frontend \"Received\"**: 0  \n**Difference**: N/A (no data received)  \n**Status**: ❌ **FAIL - System Not Receiving Data**\n\n---\n\n### Root Cause Identified\n\n**Issue**: Bitcoin Core ZMQ notifications are **NOT ENABLED**.\n\n**Evidence**:\n```bash\n$ bitcoin-cli getzmqnotifications\n[]\n```\n\nThe empty array confirms that no ZMQ endpoints are configured. The UTXOracle Live system requires ZMQ to stream real-time transaction data from Bitcoin Core to the backend.\n\n**Expected Configuration** (from CLAUDE.md):\n```conf\nzmqpubhashtx=tcp://127.0.0.1:28332\nzmqpubrawblock=tcp://127.0.0.1:28333\nzmqpubrawtx=tcp://127.0.0.1:28332\n```\n\n**Current Configuration**: Missing all ZMQ settings.\n\n---\n\n### System Component Status\n\n| Component | Status | Notes |\n|-----------|--------|-------|\n| Bitcoin Core | ✅ Running | 7,739 transactions in mempool |\n| Bitcoin RPC | ✅ Accessible | Successfully queried via bitcoin-cli |\n| Bitcoin ZMQ | ❌ Not Configured | No zmqpub* settings in bitcoin.conf |\n| Backend Server | ✅ Running | FastAPI server on port 8000 |\n| WebSocket | ✅ Connected | Frontend shows \"Connected\" status |\n| Transaction Stream | ❌ No Data | ZMQ not publishing transactions |\n\n---\n\n### Additional Observations\n\n1. **WebSocket Connection**: The frontend successfully connected to the backend WebSocket endpoint (`ws://localhost:8000/ws/mempool`), as indicated by the \"Connected\" status in the UI.\n\n2. **Server Health**: The `/health` endpoint responded correctly:\n   ```json\n   {\"status\":\"ok\",\"uptime\":9.55,\"clients\":0}\n   ```\n\n3. **Frontend Rendering**: The Canvas 2D visualization is working correctly - it displays the empty chart with proper axes, labels, and statistics panel.\n\n4. **Backend Pipeline**: The orchestrator started successfully without errors, but cannot receive data due to missing ZMQ source.\n\n---\n\n### Required Action\n\nTo enable T093 validation, the following steps are required:\n\n1. **Add ZMQ configuration to bitcoin.conf**:\n   ```bash\n   echo \"zmqpubhashtx=tcp://127.0.0.1:28332\" >> ~/.bitcoin/bitcoin.conf\n   echo \"zmqpubrawblock=tcp://127.0.0.1:28333\" >> ~/.bitcoin/bitcoin.conf\n   echo \"zmqpubrawtx=tcp://127.0.0.1:28332\" >> ~/.bitcoin/bitcoin.conf\n   ```\n\n2. **Restart Bitcoin Core** to apply the configuration:\n   ```bash\n   bitcoin-cli stop\n   # Wait for shutdown\n   bitcoind -daemon\n   ```\n\n3. **Verify ZMQ is enabled**:\n   ```bash\n   bitcoin-cli getzmqnotifications\n   # Should return 3 endpoints\n   ```\n\n4. **Restart the UTXOracle Live backend**:\n   ```bash\n   # Kill existing server\n   pkill -f \"uvicorn orchestrator:app\"\n   \n   # Start fresh\n   uv run uvicorn orchestrator:app --host 0.0.0.0 --port 8000 --log-level info\n   ```\n\n5. **Wait 10-30 seconds** for transactions to accumulate, then validate again.\n\n---\n\n### Screenshot\n\n**Location**: `/media/sam/1TB/UTXOracle/docs/T093_validation_screenshot.png`\n\nThe screenshot shows the UTXOracle Live dashboard with:\n- Empty scatter plot (no transaction points)\n- All statistics showing zero\n- WebSocket status: \"Connected\"\n- Price and confidence not yet calculated\n\n---\n\n### Conclusion\n\n**T093 Validation Status**: ❌ **CANNOT COMPLETE**\n\n**Reason**: Bitcoin Core is not configured to publish ZMQ notifications, which is a prerequisite for the UTXOracle Live system to receive real-time transaction data.\n\n**Next Steps**: Configure ZMQ in Bitcoin Core and re-run validation.\n\n**Estimated Time to Fix**: 5-10 minutes (configuration + restart)\n\n---\n\n**Validation Performed By**: Claude Code Agent  \n**Timestamp**: 2025-10-20 19:35:00 UTC+1\nEOF\ncat /media/sam/1TB/UTXOracle/docs/T093_validation_report.md\n",
       "description": "Create comprehensive validation report"
+    },
+    {
+      "operation": "task",
+      "timestamp": "2025-10-20T19:36:13.282457",
+      "subagent_type": "visualization-renderer",
+      "prompt": "**Task T093: Manual Validation - System Health Statistics Accuracy**\n\n**Objective**: Verify that the..."
+    },
+    {
+      "operation": "todowrite",
+      "timestamp": "2025-10-20T19:36:33.588387",
+      "todo_count": 7
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-20T19:36:34.732354",
+      "file_path": "/media/sam/1TB/UTXOracle/specs/002-mempool-live-oracle/tasks.md",
+      "old_string": "- [X] T092 [US4] Verify T084-T085 tests now PASS (GREEN) ✅ Both tests passing\n- [ ] T093 [US4] Manua..."
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-20T19:38:10.870295",
+      "command": "ls -la ~/.bitcoin/bitcoin.conf 2>&1",
+      "description": "Check if bitcoin.conf exists in default location"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-20T19:38:11.191096",
+      "command": "bitcoin-cli getzmqnotifications",
+      "description": "Verify current ZMQ status"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-20T19:38:11.499494",
+      "command": "bitcoin-cli getmempoolinfo",
+      "description": "Check current mempool size for baseline"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-20T19:38:16.330044",
+      "file_path": "/home/sam/.bitcoin/bitcoin.conf"
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-20T19:38:31.520172",
+      "file_path": "/home/sam/.bitcoin/bitcoin.conf",
+      "old_string": "# Security\ndisablewallet=0"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-20T19:38:37.791901",
+      "command": "bitcoin-cli stop",
+      "description": "Stop Bitcoin Core gracefully"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-20T19:38:49.460702",
+      "command": "echo \"Waiting for Bitcoin Core to stop...\" && sleep 5 && while bitcoin-cli getblockchaininfo 2>/dev/null; do echo \"Still stopping...\" && sleep 2; done && echo \"Bitcoin Core stopped successfully\"",
+      "description": "Wait for Bitcoin Core to stop completely"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-20T19:38:55.089996",
+      "command": "bitcoind -daemon",
+      "description": "Start Bitcoin Core with ZMQ enabled"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-20T19:40:07.850175",
+      "command": "tail -n 30 /media/sam/3TB-WDC/Bitcoin/debug.log",
+      "description": "Check Bitcoin Core debug log for startup status"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-20T19:40:07.936089",
+      "command": "ps aux | grep bitcoind | grep -v grep",
+      "description": "Check if bitcoind process is running"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-20T19:40:44.336835",
+      "command": "sleep 30 && bitcoin-cli getblockchaininfo 2>&1 | head -20",
+      "description": "Wait 30 seconds then check if RPC is responding"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-20T19:40:50.450185",
+      "command": "bitcoin-cli getzmqnotifications",
+      "description": "Verify ZMQ endpoints are active"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-20T19:40:56.661839",
+      "command": "ps aux | grep -E \"(orchestrator|uvicorn)\" | grep -v grep",
+      "description": "Check for running orchestrator/backend processes"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-20T19:41:10.392506",
+      "command": "sleep 3 && ps aux | grep -E \"(orchestrator|uvicorn)\" | grep -v grep",
+      "description": "Check if processes are still running"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-20T19:41:16.918969",
+      "command": "nohup uv run uvicorn orchestrator:app --host 0.0.0.0 --port 8000 --log-level info > /tmp/utxoracle_backend.log 2>&1 &",
+      "description": "Start UTXOracle backend with ZMQ connection"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-20T19:41:25.814499",
+      "command": "sleep 5 && ps aux | grep -E \"uvicorn.*orchestrator\" | grep -v grep",
+      "description": "Verify backend is running"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-20T19:41:30.799706",
+      "file_path": "/media/sam/1TB/UTXOracle/live/backend/zmq_listener.py"
+    },
+    {
+      "operation": "grep",
+      "timestamp": "2025-10-20T19:42:01.487796",
+      "pattern": "3.*part",
+      "path": "/media/sam/1TB/UTXOracle/tests/test_zmq_listener.py",
+      "output_mode": "content"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-20T19:42:05.870225",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/test_zmq_listener.py"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-20T19:42:09.733139",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/test_zmq_listener.py"
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-20T19:42:46.927879",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/test_zmq_listener.py",
+      "old_string": "@pytest.mark.asyncio\nasync def test_zmq_stream_handles_malformed_messages():\n    \"\"\"\n    Test that Z..."
     }
   ],
-  "last_updated": "2025-10-20T19:35:59.586637"
+  "last_updated": "2025-10-20T19:42:46.927895"
 }

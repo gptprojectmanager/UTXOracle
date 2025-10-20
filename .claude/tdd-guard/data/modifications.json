@@ -4,8 +4,8 @@
   "hook_event_name": "PreToolUse",
   "tool_name": "Edit",
   "tool_input": {
-    "file_path": "/media/sam/1TB/UTXOracle/live/frontend/mempool-viz.js",
-    "old_string": "        this.statReceivedElement.textContent = stats.total_received || 0;\n        this.statFilteredElement.textContent = stats.total_filtered || 0;\n        this.statActiveElement.textContent = stats.active_in_window || 0;\n\n        const uptime = stats.uptime_seconds || 0;\n        this.statUptimeElement.textContent = this.formatUptime(uptime);",
-    "new_string": "        this.statReceivedElement.textContent = stats.total_received || 0;\n        this.statFilteredElement.textContent = stats.total_filtered || 0;\n        this.statActiveElement.textContent = stats.active_tx_count || 0;  // Fixed: was active_in_window\n\n        const uptime = stats.uptime_seconds || 0;\n        this.statUptimeElement.textContent = this.formatUptime(uptime);"
+    "file_path": "/media/sam/1TB/UTXOracle/live/backend/zmq_listener.py",
+    "old_string": "                # Receive multipart message: [topic, data]\n                message = await self._socket.recv_multipart()\n\n                # Validate message structure\n                if len(message) != 2:\n                    logger.warning(\n                        f\"Malformed ZMQ message: expected 2 parts, got {len(message)}. Skipping.\"\n                    )\n                    continue\n\n                topic_bytes, tx_bytes = message",
+    "new_string": "                # Receive multipart message: [topic, data, sequence]\n                # Bitcoin Core sends 3 parts: topic, data, and sequence number\n                message = await self._socket.recv_multipart()\n\n                # Validate message structure (Bitcoin Core sends 3 parts, older versions may send 2)\n                if len(message) not in (2, 3):\n                    logger.warning(\n                        f\"Malformed ZMQ message: expected 2 or 3 parts, got {len(message)}. Skipping.\"\n                    )\n                    continue\n\n                # Handle both 2-part and 3-part messages\n                if len(message) == 3:\n                    topic_bytes, tx_bytes, _sequence = message\n                else:\n                    topic_bytes, tx_bytes = message"
   }
 }
