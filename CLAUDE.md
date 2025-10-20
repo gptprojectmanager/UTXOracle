@@ -108,7 +108,6 @@ uv.lock                             # Dependency lockfile (commit this!)
 ├── HOOKS_TUTORIAL_ANALYSIS.md
 ├── META_LEARNING_README.md
 ├── README.md
-├── REASONINGBANK_ANALYSIS.md
 ├── TDD_GUARD_VS_AUTOTEST.md
 ├── config.json
 ├── settings.local.json
@@ -122,6 +121,7 @@ uv.lock                             # Dependency lockfile (commit this!)
 ├── research/                           # Research notes
 ├── scripts/
 ├── skills/                             # 4 template-driven automation skills
+├── stats/
 └── tdd-guard/                          # TDD enforcement data
 .github/                            # Cleanup automation tools
 ├── CLEANUP_CHECKLIST.md

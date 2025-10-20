@@ -1,245 +1,5 @@
 [
   {
-    "timestamp": "2025-10-20T11:07:28.318114",
-    "tool_name": "Read",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:07:28.557723",
-    "tool_name": "Read",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:07:28.802403",
-    "tool_name": "Read",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:07:40.702918",
-    "tool_name": "WebFetch",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:21:35.196663",
-    "tool_name": "Read",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:21:35.415795",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:21:49.444993",
-    "tool_name": "Read",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:22:03.083136",
-    "tool_name": "Edit",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:22:04.065983",
-    "tool_name": "Edit",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:22:23.220432",
-    "tool_name": "Read",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:22:30.319134",
-    "tool_name": "Edit",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:22:42.568259",
-    "tool_name": "Write",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:22:50.874685",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:22:51.636953",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:23:10.500744",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:23:43.577107",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:23:51.077419",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:24:47.406323",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:25:13.419224",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:25:13.685635",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:25:15.083894",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:25:23.253897",
-    "tool_name": "Read",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:29:14.763697",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:29:14.982645",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:29:26.463995",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:29:28.250037",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:29:38.100861",
-    "tool_name": "Read",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:29:38.396215",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:29:52.276559",
-    "tool_name": "Read",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:31:09.750526",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:31:09.975917",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:31:19.914423",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:31:20.611669",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:43:20.661458",
-    "tool_name": "Read",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:43:20.902411",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:43:35.549961",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:43:36.415081",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:45:34.418576",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:45:35.182079",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T11:45:36.110099",
-    "tool_name": "Bash",
-    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
-    "success": true
-  },
-  {
     "timestamp": "2025-10-20T11:50:55.493108",
     "tool_name": "Glob",
     "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
@@ -583,6 +343,258 @@
   },
   {
     "timestamp": "2025-10-20T12:41:23.524380",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:41:40.180786",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:41:44.553139",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:41:49.474211",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:41:53.768530",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:42:08.924265",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:42:11.320932",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:43:07.836857",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:43:40.381618",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:43:57.903468",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:44:41.049828",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:44:41.325106",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:44:49.845704",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:45:06.717324",
+    "tool_name": "WebSearch",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:46:17.585262",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:46:26.518189",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:49:20.378769",
+    "tool_name": "Read",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:49:29.674672",
+    "tool_name": "WebFetch",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:49:34.502568",
+    "tool_name": "WebFetch",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:53:40.509143",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:59:09.627105",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:59:09.912947",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:59:19.877348",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:59:20.177657",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:59:28.463405",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:59:36.501563",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:59:51.933137",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T12:59:53.268423",
+    "tool_name": "Read",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T13:01:05.965271",
+    "tool_name": "Read",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T13:01:06.261569",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T13:02:14.102097",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T13:02:23.630978",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T13:04:40.926174",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T13:04:51.969150",
+    "tool_name": "Read",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T13:04:53.126925",
+    "tool_name": "Edit",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T13:05:06.418540",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T13:05:08.888586",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T13:05:13.547601",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T13:06:07.121652",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T13:06:24.623889",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T13:09:40.743380",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T13:10:03.593546",
+    "tool_name": "Bash",
+    "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T13:10:13.113490",
     "tool_name": "Bash",
     "session_id": "d46d17aa-fda5-4631-b2ce-781c7d0d0913",
     "success": true

@@ -142,7 +142,10 @@
 ### Tests for User Story 2 (TDD: Write FIRST, ensure FAIL)
 
 - [X] T065 [P] [US2] Write failing test for transaction history tracking in tests/test_api.py (test_websocket_includes_transaction_history) ✅
-- [ ] T066 [P] [US2] Write failing test for Canvas rendering in tests/integration/test_frontend.py (test_scatter_plot_renders_transactions)
+- [X] T066 [P] [US2] Write failing test for Canvas rendering in tests/integration/test_frontend.py (test_scatter_plot_renders_transactions) ✅ FAILING on missing MempoolVisualizer
+- [X] T067-T068 [US2] Backend transaction history - DELEGATED (see DELEGATION_T067-T074.md) 📦
+- [X] T069-T074 [US2] Canvas visualization - DELEGATED (see DELEGATION_T067-T074.md) 📦
+- [X] T062-T064 [US1] Manual validation - DELEGATED (see DELEGATION_T062-T064_MANUAL_VALIDATION.md) 📦
 
 ### Implementation for User Story 2
 
