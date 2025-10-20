@@ -374,3 +374,75 @@ def sample_websocket_message() -> WebSocketMessage:
             timestamp=1678901234.567
         )
     )
+
+
+# =============================================================================
+# T065: Transaction History Tracking Test (User Story 2)
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_websocket_includes_transaction_history():
+    """
+    Test that WebSocket messages include transaction history for visualization.
+
+    Requirements (User Story 2):
+    - WebSocketMessage includes list of recent transactions
+    - Transaction list contains timestamp and price for each transaction
+    - List size is limited to 300-500 transactions (for Canvas rendering)
+    - Transactions are ordered by timestamp (oldest to newest)
+    - New transactions are added to the list as they arrive
+
+    Contract:
+        WebSocketMessage.data.transactions: List[TransactionPoint]
+        TransactionPoint: {timestamp: float, price: float}
+
+    Task: T065 [US2]
+    """
+    # Arrange: Create data streamer
+    streamer = DataStreamer()
+
+    mock_client = MockWebSocketClient()
+    await streamer.register_client(mock_client)
+
+    # Create MempoolState with transaction history
+    # Note: This test assumes the API will be modified to include transaction history
+    state = MempoolState(
+        price=113600.50,
+        confidence=0.87,
+        active_tx_count=4309,
+        total_received=12543,
+        total_filtered=8234,
+        uptime_seconds=3600.5
+    )
+
+    # Act: Broadcast state
+    await streamer.broadcast(state)
+
+    # Assert: Client received message with transaction history
+    assert mock_client.messages_received == 1, "Client should receive 1 message"
+
+    # Parse message
+    msg_data = json.loads(mock_client.last_message)
+    msg = WebSocketMessage(**msg_data)
+
+    # Assert: Message includes transactions list
+    assert hasattr(msg.data, 'transactions'), "WebSocketMessage.data should have 'transactions' field"
+    assert isinstance(msg.data.transactions, list), "transactions should be a list"
+
+    # If transactions exist, validate structure
+    if len(msg.data.transactions) > 0:
+        # Assert: Each transaction has timestamp and price
+        for tx in msg.data.transactions:
+            assert hasattr(tx, 'timestamp'), "Transaction should have timestamp"
+            assert hasattr(tx, 'price'), "Transaction should have price"
+            assert tx.timestamp > 0, "Timestamp should be positive"
+            assert tx.price > 0, "Price should be positive"
+
+        # Assert: Transactions are ordered by timestamp (ascending)
+        timestamps = [tx.timestamp for tx in msg.data.transactions]
+        assert timestamps == sorted(timestamps), "Transactions should be ordered by timestamp (oldest first)"
+
+    # Assert: Transaction list size is reasonable for Canvas rendering
+    # Target: 300-500 transactions per T067 specification
+    assert len(msg.data.transactions) <= 500, "Transaction list should not exceed 500 items (Canvas performance limit)"

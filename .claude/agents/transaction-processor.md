@@ -1,7 +1,7 @@
 ---
 name: transaction-processor
 description: Binary transaction parser and filter specialist. Use proactively for Task 02 (Bitcoin transaction parsing, output extraction, UTXOracle filtering logic). Expert in binary deserialization, script analysis, and data validation.
-tools: Read, Write, Edit, Bash, Glob, Grep, mcp__serena__find_symbol, mcp__serena__get_symbols_overview, mcp__serena__read_memory, mcp__context7__get-library-docs, mcp__context7__resolve-library-id, TodoWrite
+tools: Read, Write, Edit, Bash, Glob, Grep, mcp__serena__*, mcp__context7__get-library-docs, mcp__context7__resolve-library-id, TodoWrite
 model: sonnet
 color: purple
 ---

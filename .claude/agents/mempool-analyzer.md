@@ -1,7 +1,7 @@
 ---
 name: mempool-analyzer
 description: Real-time price estimation specialist. Use proactively for Task 03 (mempool histogram management, statistical clustering, convergence algorithm). Expert in UTXOracle Steps 5-11 implementation.
-tools: Read, Write, Edit, Bash, Glob, Grep, mcp__serena__find_symbol, mcp__serena__get_symbols_overview, mcp__serena__find_referencing_symbols, mcp__context7__get-library-docs, TodoWrite
+tools: Read, Write, Edit, Bash, Glob, Grep, mcp__serena__*, mcp__context7__get-library-docs, TodoWrite
 model: sonnet
 color: green
 ---

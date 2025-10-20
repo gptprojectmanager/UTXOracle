@@ -153,7 +153,7 @@ async def health_check():
     )
 
 
-@app.websocket("/ws")
+@app.websocket("/ws/mempool")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time mempool updates"""
     await websocket.accept()
@@ -183,3 +183,21 @@ async def shutdown_event():
 
 
 __all__ = ["app", "DataStreamer", "streamer"]
+
+
+@app.get("/styles.css")
+async def serve_styles():
+    """Serve CSS file"""
+    css_path = frontend_dir / "styles.css"
+    if not css_path.exists():
+        return HTMLResponse(content="/* CSS not found */", status_code=404)
+    return HTMLResponse(content=css_path.read_text(), media_type="text/css")
+
+
+@app.get("/mempool-viz.js")
+async def serve_js():
+    """Serve JavaScript file"""
+    js_path = frontend_dir / "mempool-viz.js"
+    if not js_path.exists():
+        return HTMLResponse(content="// JS not found", status_code=404)
+    return HTMLResponse(content=js_path.read_text(), media_type="application/javascript")

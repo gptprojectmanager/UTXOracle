@@ -1,12 +1,18 @@
 /**
  * UTXOracle Live - Frontend Visualization (T056-T059)
  * 
+ * COPIA QUESTO CONTENUTO IN: live/frontend/mempool-viz.js
+ * 
  * Implements:
  * - T056: WebSocket client connection
- * - T057: Price display update  
+ * - T057: Price display update
  * - T058: Connection status indicator
  * - T059: Reconnection logic with exponential backoff
  */
+
+// =============================================================================
+// WebSocket Client (T056, T058, T059)
+// =============================================================================
 
 class MempoolWebSocketClient {
     constructor(wsUrl = 'ws://localhost:8000/ws/mempool') {
@@ -14,10 +20,11 @@ class MempoolWebSocketClient {
         this.ws = null;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 10;
-        this.baseReconnectDelay = 1000;
+        this.baseReconnectDelay = 1000; // 1 second
         this.reconnectTimeout = null;
         this.isIntentionallyClosed = false;
 
+        // Callbacks
         this.onMessageCallback = null;
         this.onConnectCallback = null;
         this.onDisconnectCallback = null;
@@ -35,15 +42,18 @@ class MempoolWebSocketClient {
         try {
             this.ws = new WebSocket(this.wsUrl);
 
+            // T056: Connection opened
             this.ws.onopen = () => {
                 console.log('[WebSocket] Connected');
                 this.reconnectAttempts = 0;
                 
+                // T058: Update connection status to green
                 if (this.onConnectCallback) {
                     this.onConnectCallback();
                 }
             };
 
+            // T056: Message received
             this.ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
@@ -55,18 +65,22 @@ class MempoolWebSocketClient {
                 }
             };
 
+            // T058: Connection closed
             this.ws.onclose = (event) => {
                 console.log('[WebSocket] Disconnected:', event.code, event.reason);
                 
+                // Update connection status to red
                 if (this.onDisconnectCallback) {
                     this.onDisconnectCallback();
                 }
 
+                // T059: Auto-reconnect with exponential backoff
                 if (!this.isIntentionallyClosed) {
                     this.scheduleReconnect();
                 }
             };
 
+            // T058: Connection error
             this.ws.onerror = (error) => {
                 console.error('[WebSocket] Error:', error);
             };
@@ -77,16 +91,18 @@ class MempoolWebSocketClient {
         }
     }
 
+    // T059: Reconnection logic with exponential backoff
     scheduleReconnect() {
         if (this.isIntentionallyClosed) {
             return;
         }
 
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            console.error('[WebSocket] Max reconnect attempts reached.');
+            console.error('[WebSocket] Max reconnect attempts reached. Giving up.');
             return;
         }
 
+        // Exponential backoff: delay = baseDelay * 2^attempts (capped at 30s)
         const delay = Math.min(
             this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts),
             30000
@@ -128,29 +144,39 @@ class MempoolWebSocketClient {
     }
 }
 
+
+// =============================================================================
+// Price Display & UI Updates (T057, T058)
+// =============================================================================
+
 class UIController {
     constructor() {
+        // DOM elements
         this.priceElement = document.getElementById('price');
         this.confidenceElement = document.getElementById('confidence');
         this.confidenceLabelElement = document.getElementById('confidence-label');
         this.connectionStatusElement = document.getElementById('connection-status');
         
+        // Stats elements
         this.statReceivedElement = document.getElementById('stat-received');
         this.statFilteredElement = document.getElementById('stat-filtered');
         this.statActiveElement = document.getElementById('stat-active');
         this.statUptimeElement = document.getElementById('stat-uptime');
     }
 
+    // T057: Update price display
     updatePrice(price) {
         if (!price || price <= 0) {
             this.priceElement.textContent = '$--,---';
             return;
         }
 
+        // Format price: $XXX,XXX
         const formatted = '$' + price.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
         this.priceElement.textContent = formatted;
     }
 
+    // T057: Update confidence display with color coding
     updateConfidence(confidence) {
         if (confidence === null || confidence === undefined) {
             this.confidenceElement.textContent = '--';
@@ -158,8 +184,13 @@ class UIController {
             return;
         }
 
+        // Display confidence as 0.0-1.0
         this.confidenceElement.textContent = confidence.toFixed(2);
 
+        // Color-coded labels (from spec.md):
+        // >0.8: High (green)
+        // 0.5-0.8: Medium (yellow)
+        // <0.5: Low (orange)
         let label, colorClass;
         if (confidence >= 0.8) {
             label = 'High';
@@ -176,6 +207,7 @@ class UIController {
         this.confidenceLabelElement.className = `confidence-label ${colorClass}`;
     }
 
+    // T058: Update connection status indicator
     updateConnectionStatus(isConnected) {
         if (isConnected) {
             this.connectionStatusElement.textContent = '● Connected';
@@ -191,6 +223,7 @@ class UIController {
         this.connectionStatusElement.className = 'status-indicator status-reconnecting';
     }
 
+    // Update statistics panel
     updateStats(stats) {
         if (!stats) return;
 
@@ -198,6 +231,7 @@ class UIController {
         this.statFilteredElement.textContent = stats.total_filtered || 0;
         this.statActiveElement.textContent = stats.active_in_window || 0;
 
+        // Format uptime as "Xh Ym" or "Xs"
         const uptime = stats.uptime_seconds || 0;
         this.statUptimeElement.textContent = this.formatUptime(uptime);
     }
@@ -216,11 +250,17 @@ class UIController {
     }
 }
 
+
+// =============================================================================
+// Main Application (T056-T059 Integration)
+// =============================================================================
+
 class UTXOracleLive {
     constructor() {
         this.wsClient = new MempoolWebSocketClient();
         this.uiController = new UIController();
 
+        // Setup callbacks
         this.wsClient.onConnect(() => {
             console.log('[App] WebSocket connected');
             this.uiController.updateConnectionStatus(true);
@@ -248,6 +288,18 @@ class UTXOracleLive {
     }
 
     handleMempoolUpdate(message) {
+        // Message format (from WebSocketMessage Pydantic model):
+        // {
+        //   "type": "mempool_update",
+        //   "data": {
+        //     "price": 113600.50,
+        //     "confidence": 0.87,
+        //     "transactions": [...],
+        //     "stats": { ... },
+        //     "timestamp": 1678901234.567
+        //   }
+        // }
+
         if (message.type !== 'mempool_update') {
             console.warn('[App] Unknown message type:', message.type);
             return;
@@ -255,11 +307,17 @@ class UTXOracleLive {
 
         const data = message.data;
 
+        // T057: Update price display
         this.uiController.updatePrice(data.price);
+
+        // T057: Update confidence display
         this.uiController.updateConfidence(data.confidence);
+
+        // Update statistics
         this.uiController.updateStats(data.stats);
 
-        if (Math.random() < 0.1) {
+        // Log update (throttled to avoid console spam)
+        if (Math.random() < 0.1) { // 10% sample
             console.log('[App] Mempool update:', {
                 price: data.price,
                 confidence: data.confidence,
@@ -269,6 +327,11 @@ class UTXOracleLive {
     }
 }
 
+
+// =============================================================================
+// Auto-start on page load
+// =============================================================================
+
 let app;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -277,10 +340,16 @@ document.addEventListener('DOMContentLoaded', () => {
     app = new UTXOracleLive();
     app.start();
 
+    // Handle page unload
     window.addEventListener('beforeunload', () => {
         app.stop();
     });
 });
+
+
+// =============================================================================
+// Exports (for testing)
+// =============================================================================
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {

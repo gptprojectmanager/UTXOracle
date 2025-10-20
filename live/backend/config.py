@@ -192,6 +192,8 @@ def setup_logging():
 
 
 __all__ = [
+    "Config",
+    "get_config",
     "BitcoinConfig",
     "ServerConfig",
     "AlgorithmConfig",
@@ -199,3 +201,48 @@ __all__ = [
     "ENVIRONMENT",
     "setup_logging",
 ]
+
+# =============================================================================
+# Configuration Container (T051 requirement)
+# =============================================================================
+
+
+class Config:
+    """Unified configuration container for UTXOracle Live."""
+
+    def __init__(self):
+        # Bitcoin settings
+        self.zmq_endpoint = BitcoinConfig.ZMQ_TX_ENDPOINT
+        self.zmq_block_endpoint = BitcoinConfig.ZMQ_BLOCK_ENDPOINT
+        self.zmq_timeout_ms = BitcoinConfig.ZMQ_TIMEOUT_MS
+        self.zmq_reconnect_interval = BitcoinConfig.ZMQ_RECONNECT_INTERVAL_SEC
+        self.bitcoin_data_dir = BitcoinConfig.BITCOIN_DATA_DIR
+
+        # Server settings
+        self.host = ServerConfig.HOST
+        self.port = ServerConfig.PORT
+        self.min_broadcast_interval = ServerConfig.MIN_UPDATE_INTERVAL_SEC
+        self.cors_origins = ServerConfig.CORS_ORIGINS
+
+        # Algorithm settings
+        self.max_inputs = AlgorithmConfig.MAX_INPUTS
+        self.required_outputs = AlgorithmConfig.REQUIRED_OUTPUTS
+        self.min_amount_btc = AlgorithmConfig.MIN_AMOUNT_BTC
+        self.max_amount_btc = AlgorithmConfig.MAX_AMOUNT_BTC
+        self.histogram_bins = AlgorithmConfig.HISTOGRAM_BINS
+        self.histogram_price_min = AlgorithmConfig.HISTOGRAM_PRICE_MIN
+        self.histogram_price_max = AlgorithmConfig.HISTOGRAM_PRICE_MAX
+        self.window_hours = AlgorithmConfig.ROLLING_WINDOW_HOURS
+        self.window_seconds = AlgorithmConfig.ROLLING_WINDOW_SECONDS
+        self.max_transaction_history = AlgorithmConfig.MAX_TRANSACTION_HISTORY
+
+
+_config = None
+
+
+def get_config():
+    """Get the global configuration instance (singleton)."""
+    global _config
+    if _config is None:
+        _config = Config()
+    return _config

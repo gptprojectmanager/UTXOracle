@@ -342,6 +342,189 @@ This project follows "black box" architecture principles for maintainability and
 
 ---
 
+## 🔧 Development Workflow
+
+### TDD Implementation Flow
+
+**Red-Green-Refactor** (when applicable):
+
+1. **🔴 RED**: Write failing test first
+   ```bash
+   uv run pytest tests/test_module.py  # Should fail
+   git add tests/ && git commit -m "TDD RED: Add test for feature X"
+   ```
+
+2. **🟢 GREEN**: Minimal code to pass
+   ```bash
+   # Implement simplest solution
+   uv run pytest tests/test_module.py  # Should pass
+   git add . && git commit -m "TDD GREEN: Implement feature X"
+   ```
+
+3. **♻️ REFACTOR**: Clean up with tests passing
+   ```bash
+   # Improve code quality
+   uv run pytest  # All tests still pass
+   git add . && git commit -m "TDD REFACTOR: Clean up feature X"
+   ```
+
+**When TDD doesn't fit**: Frontend JS, visualization, exploratory code → Write tests after, document why.
+
+---
+
+### When Stuck Protocol
+
+**CRITICAL**: Maximum **3 attempts** per issue, then STOP.
+
+#### After 3 Failed Attempts:
+
+1. **Document failure**:
+   ```markdown
+   ## Blocker: [Issue Description]
+
+   **Attempts**:
+   1. Tried: [approach] → Failed: [error]
+   2. Tried: [approach] → Failed: [error]
+   3. Tried: [approach] → Failed: [error]
+
+   **Why stuck**: [hypothesis]
+   ```
+
+2. **Research alternatives** (15min max):
+   - Find 2-3 similar implementations (GitHub, docs)
+   - Note different approaches used
+   - Check if problem is already solved differently
+
+3. **Question fundamentals**:
+   - Is this the right abstraction level?
+   - Can this be split into smaller problems?
+   - Is there a simpler approach entirely?
+   - Do I need this feature at all? (YAGNI check)
+
+4. **Try different angle OR ask for help**:
+   - Different library/framework feature?
+   - Remove abstraction instead of adding?
+   - Defer to later iteration?
+
+**Never**: Keep trying the same approach >3 times. That's insanity, not persistence.
+
+---
+
+### Decision Framework
+
+When multiple valid approaches exist, choose based on **priority order**:
+
+1. **Testability** → Can I easily test this? (automated, fast, deterministic)
+2. **Simplicity** → Is this the simplest solution that works? (KISS)
+3. **Consistency** → Does this match existing project patterns?
+4. **Readability** → Will someone understand this in 6 months? (Future you)
+5. **Reversibility** → How hard to change later? (Prefer reversible)
+
+**Example**:
+```python
+# ❌ Clever but hard to test
+result = reduce(lambda x,y: x|y, map(parse, data), {})
+
+# ✅ Simple, testable, readable
+result = {}
+for item in data:
+    parsed = parse(item)
+    result.update(parsed)
+```
+
+---
+
+### Error Handling Standards
+
+**Principles**:
+- **Fail fast** with descriptive messages
+- **Include context** for debugging (not just "Error")
+- **Handle at appropriate level** (don't catch everywhere)
+- **Never silently swallow** exceptions
+
+**Good Error Messages**:
+```python
+# ❌ Bad
+raise ValueError("Invalid input")
+
+# ✅ Good
+raise ValueError(
+    f"Bitcoin RPC connection failed: {rpc_url} "
+    f"(check bitcoin.conf rpcuser/rpcpassword)"
+)
+```
+
+**Logging over print**:
+```python
+# ❌ Bad
+print(f"Processing block {height}")  # Lost in production
+
+# ✅ Good
+logger.info(f"Processing block {height}", extra={"block_height": height})
+```
+
+---
+
+### Test Guidelines
+
+**Principles**:
+- Test **behavior**, not implementation
+- **One assertion** per test when possible (or closely related assertions)
+- **Clear test names** describing scenario: `test_<what>_<when>_<expected>`
+- **Use existing fixtures/helpers** (check `tests/conftest.py`)
+- Tests must be **deterministic** (no random, no time dependencies)
+
+**Good Test Structure**:
+```python
+def test_histogram_removes_round_amounts_when_filtering_enabled():
+    """Round BTC amounts (1.0, 5.0) should be filtered from histogram."""
+    # Arrange
+    histogram = {"1.0": 100, "1.23456": 50, "5.0": 200}
+
+    # Act
+    filtered = remove_round_amounts(histogram)
+
+    # Assert
+    assert "1.0" not in filtered
+    assert "5.0" not in filtered
+    assert filtered["1.23456"] == 50
+```
+
+**Bad Tests**:
+```python
+# ❌ Testing implementation details
+def test_histogram_uses_dict():
+    assert isinstance(histogram, dict)  # Who cares?
+
+# ❌ Multiple unrelated assertions
+def test_everything():
+    assert process() == expected  # Too vague
+    assert config.loaded  # Unrelated
+    assert server.running  # Unrelated
+```
+
+---
+
+### Important Reminders
+
+#### ❌ **NEVER**:
+- Use `--no-verify` to bypass commit hooks (fix the issue instead)
+- Disable tests instead of fixing them (broken tests = broken code)
+- Commit code that doesn't compile/run
+- Use `print()` for logging (use `logging` module)
+- Hardcode secrets/API keys (use `.env`)
+- Commit without testing locally first
+
+#### ✅ **ALWAYS**:
+- Run tests before committing (`uv run pytest`)
+- Format/lint before committing (`ruff check . && ruff format .`)
+- Write commit message explaining **WHY** (not just what)
+- Update relevant docs when changing behavior
+- Check `.gitignore` before committing sensitive files
+- Use `uv` for dependencies (not `pip`)
+
+---
+
 ## 🧹 Task Completion Protocol
 
 **IMPORTANT**: Run this checklist BEFORE marking any task as complete or creating a commit.

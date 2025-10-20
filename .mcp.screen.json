@@ -1,11 +1,12 @@
 {
   "mcpServers": {
-    "screenpilot": {
-      "command": "/media/sam/1TB1/mcpservers/ScreenPilot/.venv/bin/python",
+    "screen": {
+      "type": "stdio",
+      "command": "npx",
       "args": [
-        "/media/sam/1TB1/mcpservers/ScreenPilot/main.py"
-      ],
-      "env": {}
+        "-y",
+        "@anthropic-ai/mcp-server-screen"
+      ]
     }
   }
 }

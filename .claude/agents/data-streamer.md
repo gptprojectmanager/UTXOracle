@@ -1,7 +1,7 @@
 ---
 name: data-streamer
 description: WebSocket API specialist. Use proactively for Task 04 (FastAPI WebSocket server, real-time data streaming, client connection management). Expert in async Python and ASGI protocols.
-tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, mcp__context7__get-library-docs, mcp__context7__resolve-library-id, TodoWrite
+tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, mcp__serena__*, mcp__context7__get-library-docs, mcp__context7__resolve-library-id, TodoWrite
 model: sonnet
 color: blue
 ---
