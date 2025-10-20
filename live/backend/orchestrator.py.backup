@@ -7,14 +7,12 @@ ZMQ Listener → TX Processor → Mempool Analyzer → API Broadcast
 
 import asyncio
 import logging
-import time
-from contextlib import asynccontextmanager
 from typing import Optional
 
 from live.backend.zmq_listener import ZMQListener
 from live.backend.tx_processor import process_mempool_transaction
 from live.backend.mempool_analyzer import MempoolAnalyzer
-from live.backend.api import DataStreamer
+from live.backend.api import DataStreamer, app
 from live.backend.config import get_config
 
 logger = logging.getLogger("live.orchestrator")
@@ -106,7 +104,7 @@ class PipelineOrchestrator:
                 if not self._running:
                     break
 
-                removed_count = self.analyzer.cleanup_old_transactions(time.time())
+                removed_count = self.analyzer.remove_old_transactions()
 
                 if removed_count > 0:
                     logger.debug(
@@ -153,7 +151,20 @@ def get_orchestrator() -> PipelineOrchestrator:
     return _orchestrator
 
 
+@app.on_event("startup")
+async def startup_event():
+    logger.info("FastAPI startup: Initializing pipeline orchestrator...")
+    orchestrator = get_orchestrator()
+    asyncio.create_task(orchestrator.start())
+    logger.info("Pipeline orchestrator started")
 
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("FastAPI shutdown: Stopping pipeline orchestrator...")
+    orchestrator = get_orchestrator()
+    await orchestrator.stop()
+    logger.info("Pipeline orchestrator stopped")
 
 
 async def run_standalone():
