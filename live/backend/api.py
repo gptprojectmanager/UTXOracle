@@ -9,7 +9,6 @@ Responsibilities:
 - CORS configuration
 """
 
-import asyncio
 import logging
 import time
 from pathlib import Path
@@ -59,7 +58,9 @@ class DataStreamer:
         self.active_clients: List[WebSocket] = []
         self.max_updates_per_second = max_updates_per_second
         self.last_broadcast_time = 0.0
-        self.min_broadcast_interval = 1.0 / max_updates_per_second if max_updates_per_second > 0 else 0.0
+        self.min_broadcast_interval = (
+            1.0 / max_updates_per_second if max_updates_per_second > 0 else 0.0
+        )
 
     async def register_client(self, websocket: WebSocket) -> None:
         """Register a new WebSocket client (must already be accepted)"""
@@ -70,7 +71,9 @@ class DataStreamer:
         """Unregister a disconnected WebSocket client"""
         if websocket in self.active_clients:
             self.active_clients.remove(websocket)
-            logger.info(f"Client disconnected. Total clients: {len(self.active_clients)}")
+            logger.info(
+                f"Client disconnected. Total clients: {len(self.active_clients)}"
+            )
 
     async def broadcast(self, state: MempoolState) -> None:
         """Broadcast MempoolState to all connected clients"""
@@ -100,8 +103,15 @@ class DataStreamer:
         self.last_broadcast_time = current_time
 
     def _create_websocket_message(self, state: MempoolState) -> WebSocketMessage:
-        """Convert MempoolState to WebSocketMessage"""
+        """Convert MempoolState to WebSocketMessage (T068: includes transaction history)"""
         transactions = []
+
+        # T068: Get transaction history from analyzer if available
+        if hasattr(self, "analyzer") and self.analyzer:
+            history = self.analyzer.get_transaction_history()
+            transactions = [
+                TransactionPoint(timestamp=ts, price=price) for ts, price in history
+            ]
 
         stats = SystemStats(
             total_received=state.total_received,
@@ -200,4 +210,6 @@ async def serve_js():
     js_path = frontend_dir / "mempool-viz.js"
     if not js_path.exists():
         return HTMLResponse(content="// JS not found", status_code=404)
-    return HTMLResponse(content=js_path.read_text(), media_type="application/javascript")
+    return HTMLResponse(
+        content=js_path.read_text(), media_type="application/javascript"
+    )
