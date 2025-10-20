@@ -195,18 +195,18 @@
 
 ### Tests for User Story 4 (TDD: Write FIRST, ensure FAIL)
 
-- [ ] T084 [P] [US4] Write failing test for stats collection in tests/test_mempool_analyzer.py (test_get_stats_accuracy)
-- [ ] T085 [P] [US4] Write failing test for stats display in tests/integration/test_frontend.py (test_stats_panel_rendering)
+- [X] T084 [P] [US4] Write failing test for stats collection in tests/test_mempool_analyzer.py (test_get_stats_accuracy) ✅
+- [X] T085 [P] [US4] Write failing test for stats display in tests/integration/test_frontend.py (test_stats_panel_rendering) ✅
 
 ### Implementation for User Story 4
 
-- [ ] T086 [US4] Stats collection already implemented in T045 - verify get_stats() returns all required fields
-- [ ] T087 [US4] Create stats panel UI in live/frontend/index.html (stats display area)
-- [ ] T088 [US4] Implement stats display in live/frontend/mempool-viz.js (show "Received: X | Filtered: Y | Active: Z | Uptime: Xh Ym")
-- [ ] T089 [US4] Add uptime formatting in live/frontend/mempool-viz.js (convert seconds to "Xh Ym" format)
-- [ ] T090 [US4] Enhance connection status indicator in live/frontend/mempool-viz.js (show "Disconnected" on ZMQ connection loss)
-- [ ] T091 [US4] Add auto-reconnect status in live/frontend/mempool-viz.js (show "Reconnecting..." during auto-retry)
-- [ ] T092 [US4] Verify T084-T085 tests now PASS (GREEN)
+- [X] T086 [US4] Stats collection already implemented in T045 - verify get_state() returns all required fields ✅ MempoolState provides all stats
+- [X] T087 [US4] Create stats panel UI in live/frontend/index.html (stats display area) ✅ Already exists (lines 31-48)
+- [X] T088 [US4] Implement stats display in live/frontend/mempool-viz.js (show "Received: X | Filtered: Y | Active: Z | Uptime: Xh Ym") ✅ updateStats() method
+- [X] T089 [US4] Add uptime formatting in live/frontend/mempool-viz.js (convert seconds to "Xh Ym" format) ✅ formatUptime() method
+- [X] T090 [US4] Enhance connection status indicator in live/frontend/mempool-viz.js (show "Disconnected" on ZMQ connection loss) ✅ Already implemented in US1
+- [X] T091 [US4] Add auto-reconnect status in live/frontend/mempool-viz.js (show "Reconnecting..." during auto-retry) ✅ Already implemented in US1
+- [X] T092 [US4] Verify T084-T085 tests now PASS (GREEN) ✅ Both tests passing
 - [ ] T093 [US4] Manual test: Compare "total received" vs Bitcoin Core mempool count (bitcoin-cli getmempoolinfo) - must match ±5%
 
 **Checkpoint**: All 4 user stories should now be independently functional - complete MVP with monitoring

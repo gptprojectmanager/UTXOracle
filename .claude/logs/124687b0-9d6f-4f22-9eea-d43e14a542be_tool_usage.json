@@ -1,41 +1,5 @@
 [
   {
-    "timestamp": "2025-10-20T18:53:54.552366",
-    "tool_name": "Bash",
-    "session_id": "124687b0-9d6f-4f22-9eea-d43e14a542be",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T18:53:54.880622",
-    "tool_name": "Bash",
-    "session_id": "124687b0-9d6f-4f22-9eea-d43e14a542be",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T18:54:01.448416",
-    "tool_name": "Bash",
-    "session_id": "124687b0-9d6f-4f22-9eea-d43e14a542be",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T18:54:01.487858",
-    "tool_name": "Bash",
-    "session_id": "124687b0-9d6f-4f22-9eea-d43e14a542be",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T18:54:07.782922",
-    "tool_name": "TodoWrite",
-    "session_id": "124687b0-9d6f-4f22-9eea-d43e14a542be",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-20T18:54:13.049160",
-    "tool_name": "Bash",
-    "session_id": "124687b0-9d6f-4f22-9eea-d43e14a542be",
-    "success": true
-  },
-  {
     "timestamp": "2025-10-20T18:54:22.251914",
     "tool_name": "Bash",
     "session_id": "124687b0-9d6f-4f22-9eea-d43e14a542be",
@@ -595,6 +559,42 @@
   },
   {
     "timestamp": "2025-10-20T19:13:28.036014",
+    "tool_name": "Bash",
+    "session_id": "124687b0-9d6f-4f22-9eea-d43e14a542be",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T19:13:54.736639",
+    "tool_name": "Task",
+    "session_id": "124687b0-9d6f-4f22-9eea-d43e14a542be",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T19:14:34.067494",
+    "tool_name": "TodoWrite",
+    "session_id": "124687b0-9d6f-4f22-9eea-d43e14a542be",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T19:14:35.645794",
+    "tool_name": "Edit",
+    "session_id": "124687b0-9d6f-4f22-9eea-d43e14a542be",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T19:14:38.668039",
+    "tool_name": "Bash",
+    "session_id": "124687b0-9d6f-4f22-9eea-d43e14a542be",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T19:15:48.355138",
+    "tool_name": "TodoWrite",
+    "session_id": "124687b0-9d6f-4f22-9eea-d43e14a542be",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-20T19:15:49.647832",
     "tool_name": "Bash",
     "session_id": "124687b0-9d6f-4f22-9eea-d43e14a542be",
     "success": true

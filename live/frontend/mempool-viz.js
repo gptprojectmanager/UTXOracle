@@ -210,7 +210,7 @@ class UIController {
 
         this.statReceivedElement.textContent = stats.total_received || 0;
         this.statFilteredElement.textContent = stats.total_filtered || 0;
-        this.statActiveElement.textContent = stats.active_in_window || 0;
+        this.statActiveElement.textContent = stats.active_tx_count || 0;  // Fixed: was active_in_window
 
         const uptime = stats.uptime_seconds || 0;
         this.statUptimeElement.textContent = this.formatUptime(uptime);

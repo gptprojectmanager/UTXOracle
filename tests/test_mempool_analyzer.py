@@ -15,6 +15,87 @@ from live.shared.models import ProcessedTransaction, MempoolState, calculate_con
 
 
 # =============================================================================
+# T084: Stats Collection Accuracy Test (User Story 4)
+# =============================================================================
+
+
+def test_get_stats_accuracy():
+    """
+    Test that MempoolAnalyzer.get_state() returns accurate statistics.
+
+    Requirements (User Story 4):
+    - total_received: Total transactions received since startup
+    - total_filtered: Total transactions filtered out (not meeting UTXOracle criteria)
+    - active_tx_count: Current transactions in rolling window
+    - uptime_seconds: Time since analyzer started
+    - All stats must be accurate and non-negative
+
+    Contract:
+        MempoolAnalyzer.get_state() -> MempoolState
+        MempoolState contains: total_received, total_filtered, active_tx_count, uptime_seconds
+
+    Task: T084 [US4]
+    """
+    # Arrange: Create analyzer and track start time
+    start_time = time.time()
+    analyzer = MempoolAnalyzer(window_hours=3)
+
+    # Act: Add some transactions
+    tx1 = ProcessedTransaction(
+        txid="a" * 64,
+        amounts=[0.001, 0.002],
+        timestamp=time.time(),
+        input_count=2,
+        output_count=2,
+    )
+    tx2 = ProcessedTransaction(
+        txid="b" * 64,
+        amounts=[0.005, 0.010],
+        timestamp=time.time(),
+        input_count=1,
+        output_count=2,
+    )
+    tx3 = ProcessedTransaction(
+        txid="c" * 64,
+        amounts=[0.100, 0.050],
+        timestamp=time.time(),
+        input_count=3,
+        output_count=2,
+    )
+
+    analyzer.add_transaction(tx1)
+    analyzer.add_transaction(tx2)
+    analyzer.add_transaction(tx3)
+
+    # Get state
+    state = analyzer.get_state()
+
+    # Assert: Stats are accurate
+    assert state.total_received == 3, "Should track total_received correctly"
+    assert state.active_tx_count == 3, "Should have 3 active transactions in window"
+    assert state.uptime_seconds >= 0, "Uptime must be non-negative"
+    assert state.uptime_seconds <= (time.time() - start_time + 1), (
+        "Uptime must be reasonable"
+    )
+
+    # Assert: Stats are internally consistent
+    assert state.total_received >= state.active_tx_count, (
+        "total_received must be >= active_tx_count"
+    )
+    assert state.total_received >= state.total_filtered, (
+        "total_received must be >= total_filtered"
+    )
+    assert state.total_filtered >= 0, "total_filtered must be non-negative"
+
+    # Assert: Additional fields present
+    assert state.price > 0, "Price must be positive"
+    assert 0.0 <= state.confidence <= 1.0, "Confidence must be in [0, 1]"
+
+
+# Keep existing tests below...
+
+
+# =============================================================================
 # T024: Histogram Operations Test
 # =============================================================================
 
@@ -528,28 +609,28 @@ def test_transaction_history_buffer():
 def test_confidence_score_ranges():
     """
     Test confidence score calculation follows spec ranges.
-    
+
     Spec (from spec.md User Story 3):
     - 0-100 tx: confidence 0.0-0.3 (Low)
     - 100-1000 tx: confidence 0.3-0.8 (Medium)
     - 1000+ tx: confidence 0.8-1.0 (High)
-    
+
     Task: T075 [US3]
     """
     # Low confidence: <100 transactions
     assert calculate_confidence(0) < 0.3, "0 tx should be < 0.3"
     assert calculate_confidence(50) < 0.3, "50 tx should be < 0.3"
     assert calculate_confidence(99) < 0.3, "99 tx should be < 0.3"
-    
+
     # Medium confidence: 100-1000 transactions
     assert 0.3 <= calculate_confidence(100) < 0.8, "100 tx should be 0.3-0.8"
     assert 0.3 <= calculate_confidence(500) < 0.8, "500 tx should be 0.3-0.8"
     assert 0.3 <= calculate_confidence(999) < 0.8, "999 tx should be 0.3-0.8"
-    
+
     # High confidence: 1000+ transactions
     assert calculate_confidence(1000) >= 0.8, "1000 tx should be >= 0.8"
     assert calculate_confidence(5000) >= 0.8, "5000 tx should be >= 0.8"
     assert calculate_confidence(10000) >= 0.8, "10000 tx should be >= 0.8"
-    
+
     # Additional validation: should never exceed 1.0
     assert calculate_confidence(100000) <= 1.0, "Should never exceed 1.0"

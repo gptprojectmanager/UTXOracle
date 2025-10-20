@@ -4,8 +4,8 @@
       "moduleId": "tests/test_mempool_analyzer.py",
       "tests": [
         {
-          "name": "test_confidence_score_ranges",
-          "fullName": "tests/test_mempool_analyzer.py::test_confidence_score_ranges",
+          "name": "test_get_stats_accuracy",
+          "fullName": "tests/test_mempool_analyzer.py::test_get_stats_accuracy",
           "state": "passed"
         }
       ]
@@ -14,8 +14,8 @@
       "moduleId": "tests/integration/test_frontend.py",
       "tests": [
         {
-          "name": "test_confidence_warning_display",
-          "fullName": "tests/integration/test_frontend.py::test_confidence_warning_display",
+          "name": "test_stats_panel_rendering",
+          "fullName": "tests/integration/test_frontend.py::test_stats_panel_rendering",
           "state": "passed"
         }
       ]

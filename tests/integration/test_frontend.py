@@ -14,6 +14,91 @@ from pathlib import Path
 
 
 # =============================================================================
+# T085: Stats Panel Rendering Test (User Story 4)
+# =============================================================================
+
+
+def test_stats_panel_rendering():
+    """
+    Test that HTML contains stats panel and JavaScript updates it.
+
+    Requirements (User Story 4):
+    - HTML contains stats display area
+    - JavaScript receives stats from WebSocket message
+    - Stats displayed: "Received: X | Filtered: Y | Active: Z | Uptime: Xh Ym"
+    - Uptime formatted as hours/minutes (not raw seconds)
+    - Connection status indicator present
+
+    This is a STRUCTURAL test (checks files and elements exist).
+    Visual rendering requires browser environment - see manual testing notes.
+
+    Task: T085 [US4]
+    """
+    # Assert: HTML file exists
+    html_path = Path("live/frontend/index.html")
+    assert html_path.exists(), f"Frontend HTML not found: {html_path}"
+
+    # Assert: JavaScript module exists
+    js_path = Path("live/frontend/mempool-viz.js")
+    assert js_path.exists(), f"Visualization JS not found: {js_path}"
+
+    # Assert: HTML contains stats display area
+    html_content = html_path.read_text()
+
+    # Check for stats panel in HTML (any of these patterns)
+    has_stats_section = any(
+        [
+            'id="stats"' in html_content,
+            "id='stats'" in html_content,
+            'class="stats"' in html_content,
+            "class='stats'" in html_content,
+            '<div class="stats-panel">' in html_content,
+            '<section class="stats">' in html_content,
+        ]
+    )
+    assert has_stats_section, (
+        "HTML should contain stats display area (id='stats' or class='stats')"
+    )
+
+    # Assert: JavaScript handles stats updates
+    js_content = js_path.read_text()
+
+    # Check for stats-related code (any of these patterns)
+    has_stats_handling = any(
+        [
+            "total_received" in js_content,
+            "totalReceived" in js_content,
+            "active_tx_count" in js_content,
+            "activeTxCount" in js_content,
+            "uptime" in js_content.lower(),
+        ]
+    )
+    assert has_stats_handling, "JavaScript should handle stats from WebSocket message"
+
+    # Assert: Uptime formatting exists (hours/minutes, not raw seconds)
+    has_uptime_format = any(
+        [
+            "hours" in js_content.lower() or "minutes" in js_content.lower(),
+            "formatUptime" in js_content,
+            "format_uptime" in js_content,
+            "/ 3600" in js_content,  # seconds to hours conversion
+            "/ 60" in js_content,  # seconds/minutes to minutes conversion
+        ]
+    )
+    assert has_uptime_format, "JavaScript should format uptime as hours/minutes"
+
+    # Assert: Connection status indicator exists (from US1, should still be present)
+    has_connection_status = any(
+        [
+            "connection" in js_content.lower() and "status" in js_content.lower(),
+            "connected" in js_content.lower(),
+            "disconnected" in js_content.lower(),
+        ]
+    )
+    assert has_connection_status, "JavaScript should have connection status handling"
+
+
+# =============================================================================
 # T066: Canvas Rendering Test (User Story 2)
 # =============================================================================
 
@@ -95,32 +180,40 @@ def test_scatter_plot_renders_transactions():
 def test_confidence_warning_display():
     """
     Test that HTML contains confidence warning element.
-    
+
     Requirements (User Story 3):
     - Warning element exists in HTML
     - Warning text: "⚠ Low confidence - warming up"
     - CSS class for show/hide: confidence-warning
-    
+
     Task: T076 [US3]
     """
     # Assert: HTML file exists
     html_path = Path("live/frontend/index.html")
     assert html_path.exists(), "Frontend HTML not found"
-    
+
     html_content = html_path.read_text()
-    
+
     # Assert: Warning element exists
     assert "confidence-warning" in html_content, "Missing confidence warning element"
     assert "Low confidence" in html_content, "Missing low confidence warning text"
     assert "warming up" in html_content, "Missing warming up text"
-    
+
     # Assert: CSS file has warning styles
     css_path = Path("live/frontend/styles.css")
     assert css_path.exists(), "CSS file not found"
-    
+
     css_content = css_path.read_text()
-    
-    assert ".confidence-warning" in css_content, "Missing CSS class for confidence warning"
-    assert ".confidence-high" in css_content or "confidence-high" in css_content, "Missing high confidence CSS"
-    assert ".confidence-medium" in css_content or "confidence-medium" in css_content, "Missing medium confidence CSS"
-    assert ".confidence-low" in css_content or "confidence-low" in css_content, "Missing low confidence CSS"
+
+    assert ".confidence-warning" in css_content, (
+        "Missing CSS class for confidence warning"
+    )
+    assert ".confidence-high" in css_content or "confidence-high" in css_content, (
+        "Missing high confidence CSS"
+    )
+    assert ".confidence-medium" in css_content or "confidence-medium" in css_content, (
+        "Missing medium confidence CSS"
+    )
+    assert ".confidence-low" in css_content or "confidence-low" in css_content, (
+        "Missing low confidence CSS"
+    )
