@@ -104,6 +104,35 @@ h1 {
     font-size: 14px;
 }
 
+/* Confidence color-coding (US3: T079) */
+.confidence-label.confidence-high {
+    color: #00FF00; /* Green */
+    font-weight: bold;
+}
+
+.confidence-label.confidence-medium {
+    color: #FFFF00; /* Yellow */
+    font-weight: bold;
+}
+
+.confidence-label.confidence-low {
+    color: #FF8C00; /* Orange */
+    font-weight: bold;
+}
+
+/* Low confidence warning (US3: T080) */
+.confidence-warning {
+    color: #FF8C00;
+    font-size: 14px;
+    font-style: italic;
+    margin-top: 5px;
+    display: none;
+}
+
+.confidence-warning.show {
+    display: block;
+}
+
 /* Canvas Container */
 .canvas-container {
     position: relative;

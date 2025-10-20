@@ -518,3 +518,38 @@ def test_transaction_history_buffer():
     assert timestamps == sorted(timestamps), (
         "History should be ordered by timestamp (oldest first)"
     )
+
+
+# =============================================================================
+# T075: Confidence Score Ranges Test (User Story 3)
+# =============================================================================
+
+
+def test_confidence_score_ranges():
+    """
+    Test confidence score calculation follows spec ranges.
+    
+    Spec (from spec.md User Story 3):
+    - 0-100 tx: confidence 0.0-0.3 (Low)
+    - 100-1000 tx: confidence 0.3-0.8 (Medium)
+    - 1000+ tx: confidence 0.8-1.0 (High)
+    
+    Task: T075 [US3]
+    """
+    # Low confidence: <100 transactions
+    assert calculate_confidence(0) < 0.3, "0 tx should be < 0.3"
+    assert calculate_confidence(50) < 0.3, "50 tx should be < 0.3"
+    assert calculate_confidence(99) < 0.3, "99 tx should be < 0.3"
+    
+    # Medium confidence: 100-1000 transactions
+    assert 0.3 <= calculate_confidence(100) < 0.8, "100 tx should be 0.3-0.8"
+    assert 0.3 <= calculate_confidence(500) < 0.8, "500 tx should be 0.3-0.8"
+    assert 0.3 <= calculate_confidence(999) < 0.8, "999 tx should be 0.3-0.8"
+    
+    # High confidence: 1000+ transactions
+    assert calculate_confidence(1000) >= 0.8, "1000 tx should be >= 0.8"
+    assert calculate_confidence(5000) >= 0.8, "5000 tx should be >= 0.8"
+    assert calculate_confidence(10000) >= 0.8, "10000 tx should be >= 0.8"
+    
+    # Additional validation: should never exceed 1.0
+    assert calculate_confidence(100000) <= 1.0, "Should never exceed 1.0"

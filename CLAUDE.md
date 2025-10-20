@@ -145,6 +145,7 @@ archive/                            # Previous versions (v7, v8, v9)
 docs/                               # Documentation
 ├── CANVAS_IMPLEMENTATION_COMPLETE.md
 ├── IMPLEMENTATION_CHECKLIST.md
+├── MANUAL_TEST_US3_CONFIDENCE_WARNING.md
 ├── algorithm_concepts.md
 ├── mcp-builder-agent.md
 ├── skills-creator-agent.md

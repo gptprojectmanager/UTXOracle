@@ -135,6 +135,7 @@ class UIController {
         this.confidenceElement = document.getElementById('confidence');
         this.confidenceLabelElement = document.getElementById('confidence-label');
         this.connectionStatusElement = document.getElementById('connection-status');
+        this.confidenceWarningElement = document.getElementById('confidence-warning');
         
         this.statReceivedElement = document.getElementById('stat-received');
         this.statFilteredElement = document.getElementById('stat-filtered');
@@ -156,6 +157,9 @@ class UIController {
         if (confidence === null || confidence === undefined) {
             this.confidenceElement.textContent = '--';
             this.confidenceLabelElement.textContent = '(--)';
+            if (this.confidenceWarningElement) {
+                this.confidenceWarningElement.classList.remove('show');
+            }
             return;
         }
 
@@ -175,6 +179,15 @@ class UIController {
 
         this.confidenceLabelElement.textContent = `(${label})`;
         this.confidenceLabelElement.className = `confidence-label ${colorClass}`;
+
+        // T080: Show/hide low confidence warning
+        if (this.confidenceWarningElement) {
+            if (confidence < 0.5) {
+                this.confidenceWarningElement.classList.add('show');
+            } else {
+                this.confidenceWarningElement.classList.remove('show');
+            }
+        }
     }
 
     updateConnectionStatus(isConnected) {

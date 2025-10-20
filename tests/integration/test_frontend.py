@@ -85,3 +85,42 @@ def test_scatter_plot_renders_transactions():
 
     for condition, error_msg in required_elements:
         assert condition, error_msg
+
+
+# =============================================================================
+# T076: Low Confidence Warning Display Test (User Story 3)
+# =============================================================================
+
+
+def test_confidence_warning_display():
+    """
+    Test that HTML contains confidence warning element.
+    
+    Requirements (User Story 3):
+    - Warning element exists in HTML
+    - Warning text: "⚠ Low confidence - warming up"
+    - CSS class for show/hide: confidence-warning
+    
+    Task: T076 [US3]
+    """
+    # Assert: HTML file exists
+    html_path = Path("live/frontend/index.html")
+    assert html_path.exists(), "Frontend HTML not found"
+    
+    html_content = html_path.read_text()
+    
+    # Assert: Warning element exists
+    assert "confidence-warning" in html_content, "Missing confidence warning element"
+    assert "Low confidence" in html_content, "Missing low confidence warning text"
+    assert "warming up" in html_content, "Missing warming up text"
+    
+    # Assert: CSS file has warning styles
+    css_path = Path("live/frontend/styles.css")
+    assert css_path.exists(), "CSS file not found"
+    
+    css_content = css_path.read_text()
+    
+    assert ".confidence-warning" in css_content, "Missing CSS class for confidence warning"
+    assert ".confidence-high" in css_content or "confidence-high" in css_content, "Missing high confidence CSS"
+    assert ".confidence-medium" in css_content or "confidence-medium" in css_content, "Missing medium confidence CSS"
+    assert ".confidence-low" in css_content or "confidence-low" in css_content, "Missing low confidence CSS"
