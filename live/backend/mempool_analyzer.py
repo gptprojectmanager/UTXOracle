@@ -7,8 +7,9 @@ Based on UTXOracle.py Steps 5-11.
 """
 
 import time
-from typing import Dict, List
+from collections import deque
 from dataclasses import dataclass
+from typing import Dict, List, Tuple
 
 from live.shared.models import ProcessedTransaction, MempoolState, calculate_confidence
 
@@ -43,6 +44,11 @@ class MempoolAnalyzer:
         self.transactions: Dict[str, TransactionRecord] = {}
         self.total_received = 0
         self.start_time = time.time()
+
+        # Transaction history for visualization (T067 - User Story 2)
+        # Stores (timestamp, price) tuples for Canvas scatter plot
+        # Limited to 500 points for Canvas performance
+        self.transaction_history: deque = deque(maxlen=500)
 
         # Stencils (Step 8)
         self.smooth_stencil = self._build_smooth_stencil()
@@ -94,6 +100,10 @@ class MempoolAnalyzer:
             bin_indices=bin_indices,
         )
         self.total_received += 1
+
+        # T067: Add to transaction history for visualization
+        current_price = self.last_price_estimate  # Use last known price
+        self.transaction_history.append((tx.timestamp, current_price))
 
     def remove_transaction(self, txid: str) -> None:
         """Remove transaction from histogram (for RBF/drops)"""
@@ -281,6 +291,17 @@ class MempoolAnalyzer:
             total_filtered=0,
             uptime_seconds=uptime,
         )
+
+    def get_transaction_history(self) -> List[Tuple[float, float]]:
+        """
+        Get transaction history for visualization (T067 - User Story 2).
+
+        Returns:
+            List of (timestamp, price) tuples for Canvas scatter plot.
+            Limited to 500 most recent points for Canvas performance.
+            Ordered by timestamp (ascending - oldest first).
+        """
+        return list(self.transaction_history)
 
 
 __all__ = ["MempoolAnalyzer"]
