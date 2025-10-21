@@ -244,24 +244,35 @@ async def _update_baseline_on_block(self):
 
 ---
 
-## Decision Required
+## Decision: OPTION B + Verification Tests ✅ APPROVED
 
-**Choose architecture approach**:
-- [ ] Option A: Shared `price_calculator` module (recommended)
-- [ ] Option B: Independent mempool implementation (simpler short-term)
+**Chosen**: Independent implementation with mandatory parity testing
+**Date**: 2025-10-21
+**Rationale**: User identified verification tests eliminate divergence risk
 
-**Recommendation**: **Option A**
-- Honors CHANGELOG philosophy: "zero dependencies, educational transparency"
-- Single source of truth for pricing algorithm
-- UTXOracle.py becomes **reference that uses the module**
-- Mempool live **also uses same module**
-- Future: WASM/Rust version can replace module without touching either
+**Why Option B + Verification is SUPERIOR**:
+1. ✅ UTXOracle.py 100% immutable (sacred reference)
+2. ✅ Mempool live optimized for production
+3. ✅ Verification tests guarantee algorithmic equivalence
+4. ✅ CI/CD blocks merge if algorithms diverge
+5. ✅ Simpler implementation (no refactoring)
+6. ✅ Separation of concerns: reference vs production
 
-**Next Steps**:
-1. Design review with user
-2. Create extraction plan for Steps 7-11
-3. Write tests before extraction (TDD)
-4. Implement Phase 1 (shared module)
+**Implementation**:
+```python
+# tests/test_algorithm_parity.py
+def test_price_calculation_matches_reference():
+    """BLOCKS CI/CD if fails - prevents divergence"""
+    ref_price = utxoracle_reference(test_data)
+    live_price = mempool_analyzer.estimate_price(test_data)
+    assert ref_price == pytest.approx(live_price, rel=1e-6)
+```
+
+**Next Steps** (Updated to Option B):
+1. ✅ Design approved
+2. Phase 1: Build verification framework (T075-T078)
+3. Phase 2: Copy algorithm with parity tests (T079-T082)
+4. Phases 3-6: Baseline + integration (T083-T099)
 
 ---
 

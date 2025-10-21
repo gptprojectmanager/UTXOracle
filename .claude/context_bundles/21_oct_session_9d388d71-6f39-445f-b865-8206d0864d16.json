@@ -303,7 +303,71 @@
       "timestamp": "2025-10-21T12:22:08.998877",
       "command": "git add -A && git status --short",
       "description": "Check what will be committed"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-21T12:22:18.852969",
+      "command": "rm live/frontend/mempool-viz.js.backup live/frontend/mempool-viz-updated.js && git add -A && git status --short",
+      "description": "Remove backup files and update staging"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-21T12:22:49.039978",
+      "command": "git commit -m \"$(cat <<'EOF'\n[T074a-c,T074e] Mempool viz: scrolling timeline + variable point size + fade-out + DataStreamer fix\n\nImplementation:\n- T074a: Timeline scrolling (5-min window, right=now, left=old)\n- T074b: Variable point size (1-8px based on tx USD value with sqrt scaling)\n- T074c: Fade-out for old points (last 20% of window: opacity 1.0→0.3)\n- T074e: Fix DataStreamer analyzer reference (transactions now populated)\n\nChanges:\n- live/frontend/mempool-viz.js: Complete rewrite of MempoolVisualizer class\n  * scaleX() uses real-time scrolling window\n  * getPointSize() calculates size from tx value\n  * getPointOpacity() implements fade-out\n  * render() loop handles continuous animation\n- live/backend/api.py: Added analyzer attribute and set_analyzer() method\n- live/backend/orchestrator.py: Call streamer.set_analyzer(self.analyzer)\n- specs/002-mempool-live-oracle/tasks.md: Updated task status + added bug tasks\n\nResults:\n✅ Transactions visible (66 points rendering)\n✅ WebSocket sends transaction history\n✅ Scrolling/size/fade logic implemented\n\nKnown Issues:\n❌ price=100000 (hardcoded fallback - T074f)\n   → estimate_price() returns fallback because histogram insufficient\n   → SOLUTION: Need 24h baseline calculation FIRST (UTXOracle.py)\n   → Then mempool live uses baseline as Y-axis reference\n   \nNext Steps:\n- T074f: Debug estimate_price() histogram population\n- Implement: Run UTXOracle.py for 24h → save baseline → start mempool live\n- Reference: CHANGELOG v9.0 \"The Intraday\" visualization as baseline\n\n🤖 Generated with Claude Code\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\"",
+      "description": "Commit visualization improvements and DataStreamer fix"
+    },
+    {
+      "operation": "todowrite",
+      "timestamp": "2025-10-21T12:23:05.107038",
+      "todo_count": 3
+    },
+    {
+      "operation": "write",
+      "timestamp": "2025-10-21T12:27:49.116714",
+      "file_path": "/media/sam/1TB/UTXOracle/docs/BASELINE_LIVE_ARCHITECTURE.md",
+      "content_length": 9003
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-21T12:28:17.267431",
+      "file_path": "/media/sam/1TB/UTXOracle/specs/002-mempool-live-oracle/tasks.md",
+      "old_string": "### Bug Fixes (Critical for Visualization)\n\n- [ ] T074e [BUG] Fix DataStreamer analyzer reference (c..."
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-21T12:28:41.639889",
+      "command": "git add docs/BASELINE_LIVE_ARCHITECTURE.md specs/002-mempool-live-oracle/tasks.md && git commit -m \"$(cat <<'EOF'\n[DESIGN] Baseline + Live architecture specification\n\nCreated comprehensive design document addressing:\n- Problem: UTXOracle.py generates HTML, can't be called directly\n- Problem: Baseline becomes stale after new block\n- Problem: Black box principle violation if duplicating code\n\nSolution: 2-Architecture Design\n- Shared price_calculator module (Steps 7-11 from UTXOracle.py)\n- BaselineCalculator (144-block rolling window, updated on new blocks)\n- ZMQ rawblock listener for continuous baseline updates\n- Mempool analyzer uses baseline for Y-axis scaling\n- Frontend displays baseline + mempool on dual timeline\n\nImplementation Plan:\n- Phase 1 (T075-T078): Extract core algorithm to shared module\n- Phase 2 (T079-T082): Baseline calculator with rolling window\n- Phase 3 (T083-T086): ZMQ block listener + recalculation trigger\n- Phase 4 (T087-T090): Mempool analyzer integration\n- Phase 5 (T091-T094): Frontend dual timeline visualization\n\nKey Decisions:\n- Option A: Shared module (RECOMMENDED) - single source of truth\n- Option B: Copy algorithm (simpler but duplication risk)\n- Incremental baseline updates vs full recalculation\n- Baseline (cyan) vs Mempool (orange) color distinction\n\nReference: CHANGELOG v9.0 \"The Intraday\" for baseline visualization\nStatus: DRAFT - Awaiting user approval for implementation\n\nFiles:\n- docs/BASELINE_LIVE_ARCHITECTURE.md: Full design specification\n- specs/002-mempool-live-oracle/tasks.md: Added T075-T094 (20 tasks, 5 phases)\n\n🤖 Generated with Claude Code\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\"",
+      "description": "Commit baseline architecture design"
+    },
+    {
+      "operation": "todowrite",
+      "timestamp": "2025-10-21T12:28:53.087448",
+      "todo_count": 3
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-21T12:41:48.224366",
+      "file_path": "/media/sam/1TB/UTXOracle/specs/002-mempool-live-oracle/tasks.md",
+      "old_string": "### Baseline + Live Architecture (NEW - See docs/BASELINE_LIVE_ARCHITECTURE.md)\n\n**Phase 1: Shared P..."
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-21T12:41:51.843439",
+      "file_path": "/media/sam/1TB/UTXOracle/specs/002-mempool-live-oracle/tasks.md",
+      "old_string": "**Phase 2: Baseline Calculator** (24h rolling window)\n- [ ] T079 Create live/backend/baseline_calcul..."
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-21T12:41:55.411165",
+      "file_path": "/media/sam/1TB/UTXOracle/specs/002-mempool-live-oracle/tasks.md",
+      "old_string": "**Phase 3: ZMQ Block Listener** (Continuous update trigger)"
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-21T12:41:59.567398",
+      "file_path": "/media/sam/1TB/UTXOracle/docs/BASELINE_LIVE_ARCHITECTURE.md",
+      "old_string": "## Decision Required\n\n**Choose architecture approach**:\n- [ ] Option A: Shared `price_calculator` mo..."
     }
   ],
-  "last_updated": "2025-10-21T12:22:08.998900"
+  "last_updated": "2025-10-21T12:41:59.567417"
 }

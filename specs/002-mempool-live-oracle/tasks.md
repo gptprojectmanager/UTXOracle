@@ -171,21 +171,30 @@
 - [ ] T074f [BUG] Debug estimate_price() returning fallback 100000 instead of calculated price → SUPERSEDED by baseline architecture
 - [ ] T074g [BUG] Verify get_transaction_history() returns non-empty data → WORKING (66 tx visible)
 
-### Baseline + Live Architecture (NEW - See docs/BASELINE_LIVE_ARCHITECTURE.md)
+### Baseline + Live Architecture - OPTION B + Verification (APPROVED)
 
-**Phase 1: Shared Price Calculator Module** (Foundation)
-- [ ] T075 Create live/backend/price_calculator.py module skeleton
-- [ ] T076 Extract Steps 7-11 from UTXOracle.py (build_histogram, remove_round_amounts, build_stencil, estimate_rough_price)
-- [ ] T077 Write unit tests for price_calculator module (verify matches UTXOracle.py exactly)
-- [ ] T078 [OPTIONAL] Modify UTXOracle.py to use price_calculator module (maintains reference impl)
+**Decision**: Copy algorithm from UTXOracle.py to mempool_analyzer.py + verification tests
+**Rationale**: Keeps UTXOracle.py 100% immutable, verification tests prevent divergence
 
-**Phase 2: Baseline Calculator** (24h rolling window)
-- [ ] T079 Create live/backend/baseline_calculator.py
-- [ ] T080 Implement 144-block rolling window (24h on-chain data)
-- [ ] T081 Implement calculate_baseline() using price_calculator module
-- [ ] T082 Add baseline state management (price, range, confidence, last_updated)
+**Phase 1: Algorithm Verification Framework** (Foundation)
+- [ ] T075 Create tests/test_algorithm_parity.py with parity test suite
+- [ ] T076 Generate test vectors from real blockchain data (10+ diverse cases)
+- [ ] T077 Implement reference wrapper for UTXOracle.py Steps 7-11
+- [ ] T078 Add CI/CD hook to block merge if parity tests fail
 
-**Phase 3: ZMQ Block Listener** (Continuous update trigger)
+**Phase 2: Copy Algorithm to Mempool Analyzer** (With verification)
+- [ ] T079 Copy Steps 7-11 from UTXOracle.py to mempool_analyzer.py methods
+- [ ] T080 Add docstring: "Algorithm from UTXOracle.py v9.1 - DO NOT MODIFY without updating parity tests"
+- [ ] T081 Run test_algorithm_parity.py - MUST PASS before proceeding
+- [ ] T082 Document: any algorithm change requires UTXOracle.py sync or test update
+
+**Phase 3: Baseline Calculator** (24h rolling window)
+- [ ] T083 Create live/backend/baseline_calculator.py using copied algorithm
+- [ ] T084 Implement 144-block rolling window (24h on-chain data)
+- [ ] T085 Implement calculate_baseline() → price + range + confidence
+- [ ] T086 Add baseline state management (last_updated, block_height)
+
+**Phase 4: ZMQ Block Listener** (Continuous update trigger)
 - [ ] T083 Add zmqpubrawblock subscription to live/backend/zmq_listener.py
 - [ ] T084 Implement stream_blocks() async generator
 - [ ] T085 Add block transaction parser
