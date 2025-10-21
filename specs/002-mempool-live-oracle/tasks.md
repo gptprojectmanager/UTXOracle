@@ -167,9 +167,41 @@
 
 ### Bug Fixes (Critical for Visualization)
 
-- [ ] T074e [BUG] Fix DataStreamer analyzer reference (currently None, prevents transaction history from being sent to frontend)
-- [ ] T074f [BUG] Debug estimate_price() returning fallback 100000 instead of calculated price
-- [ ] T074g [BUG] Verify get_transaction_history() returns non-empty data
+- [X] T074e [BUG] Fix DataStreamer analyzer reference (currently None, prevents transaction history from being sent to frontend) ✅
+- [ ] T074f [BUG] Debug estimate_price() returning fallback 100000 instead of calculated price → SUPERSEDED by baseline architecture
+- [ ] T074g [BUG] Verify get_transaction_history() returns non-empty data → WORKING (66 tx visible)
+
+### Baseline + Live Architecture (NEW - See docs/BASELINE_LIVE_ARCHITECTURE.md)
+
+**Phase 1: Shared Price Calculator Module** (Foundation)
+- [ ] T075 Create live/backend/price_calculator.py module skeleton
+- [ ] T076 Extract Steps 7-11 from UTXOracle.py (build_histogram, remove_round_amounts, build_stencil, estimate_rough_price)
+- [ ] T077 Write unit tests for price_calculator module (verify matches UTXOracle.py exactly)
+- [ ] T078 [OPTIONAL] Modify UTXOracle.py to use price_calculator module (maintains reference impl)
+
+**Phase 2: Baseline Calculator** (24h rolling window)
+- [ ] T079 Create live/backend/baseline_calculator.py
+- [ ] T080 Implement 144-block rolling window (24h on-chain data)
+- [ ] T081 Implement calculate_baseline() using price_calculator module
+- [ ] T082 Add baseline state management (price, range, confidence, last_updated)
+
+**Phase 3: ZMQ Block Listener** (Continuous update trigger)
+- [ ] T083 Add zmqpubrawblock subscription to live/backend/zmq_listener.py
+- [ ] T084 Implement stream_blocks() async generator
+- [ ] T085 Add block transaction parser
+- [ ] T086 Integrate baseline recalculation on new block in orchestrator
+
+**Phase 4: Mempool Analyzer Integration** (Use baseline)
+- [ ] T087 Modify mempool_analyzer.py to accept baseline reference
+- [ ] T088 Update estimate_price() to use baseline price range for Y-axis scaling
+- [ ] T089 Implement get_combined_history() returning baseline + mempool points
+- [ ] T090 Update WebSocket message to include baseline data
+
+**Phase 5: Frontend Visualization** (Dual timeline)
+- [ ] T091 Modify mempool-viz.js to render baseline points (cyan) vs mempool (orange)
+- [ ] T092 Add baseline price line indicator
+- [ ] T093 Implement timeline split: LEFT=baseline (historical), RIGHT=mempool (real-time)
+- [ ] T094 Manual test: Verify baseline updates on new block
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently - price display + scatter plot visualization
 

@@ -142,6 +142,7 @@ archive/                            # Previous versions (v7, v8, v9)
 ├── v8/
 └── v9/
 docs/                               # Documentation
+├── BASELINE_LIVE_ARCHITECTURE.md
 ├── CANVAS_IMPLEMENTATION_COMPLETE.md
 ├── IMPLEMENTATION_CHECKLIST.md
 ├── MANUAL_TEST_US3_CONFIDENCE_WARNING.md
