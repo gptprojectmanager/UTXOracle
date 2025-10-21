@@ -189,10 +189,10 @@
 - [X] T102 Integrate baseline recalculation on new block in orchestrator.py ✅ _process_blocks() task added
 
 **Phase BL-3: Mempool Integration** (Use baseline) 🎯 PRIORITY 3
-- [ ] T103 Modify mempool_analyzer.py to accept baseline reference from orchestrator
-- [ ] T104 Update estimate_price() to use baseline price range for Y-axis scaling
-- [ ] T105 Implement get_combined_history() returning baseline + mempool data points
-- [ ] T106 Update WebSocketMessage in api.py to include baseline data (price, range)
+- [X] T103 Modify mempool_analyzer.py to accept baseline reference from orchestrator
+- [X] T104 Update estimate_price() to use baseline price range for Y-axis scaling
+- [X] T105 Implement get_combined_history() returning baseline + mempool data points
+- [X] T106 Update WebSocketMessage in api.py to include baseline data (price, range)
 
 **Phase BL-4: Frontend Visualization** (Dual timeline) 🎯 PRIORITY 4
 - [ ] T107 Modify mempool-viz.js to render baseline points (cyan) vs mempool (orange)
