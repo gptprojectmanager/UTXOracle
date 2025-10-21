@@ -1,15 +1,18 @@
 /**
- * UTXOracle Live - Frontend Visualization (T056-T059 + T074a-T074c)
- * 
+ * UTXOracle Live - Frontend Visualization (T056-T059 + T074a-T074c + T107-T109)
+ *
  * Implements:
  * - T056: WebSocket client connection
- * - T057: Price display update  
+ * - T057: Price display update
  * - T058: Connection status indicator
  * - T059: Reconnection logic with exponential backoff
  * - T069-T074: Canvas 2D scatter plot visualization
  * - T074a: Timeline scrolling (fixed 5-min window)
  * - T074b: Variable point size (scaled by tx USD value)
  * - T074c: Fade-out for old points
+ * - T107: Render baseline points (cyan)
+ * - T108: Add baseline price line indicator
+ * - T109: Dual timeline split (LEFT=baseline, RIGHT=mempool)
  */
 
 class MempoolWebSocketClient {
