@@ -180,6 +180,8 @@
 - [X] T095 Create live/backend/baseline_calculator.py and copy Steps 7-11 from UTXOracle.py ✅ Core structure + stencils
 - [X] T096 Implement 144-block rolling window (24h on-chain data storage) ✅ DONE (deque with maxlen=144)
 - [X] T097 Implement calculate_baseline() → returns price + range + confidence ✅ DONE (Steps 7-11 algorithm with fallback)
+- [X] T097a [BUG] Fix histogram population: Count transactions not sum amounts (commit 5bf19a1 line 232) ✅
+- [X] T097b [BUG] Fix stencil slice length: 803 elements not 804 (commit 5bf19a1 line 294) ✅
 - [X] T098 Add baseline state management (last_updated, block_height tracking) ✅ DONE (get_state)
 
 **Phase BL-2: ZMQ Block Listener** (Continuous update trigger) 🎯 PRIORITY 2
@@ -189,10 +191,11 @@
 - [X] T102 Integrate baseline recalculation on new block in orchestrator.py ✅ _process_blocks() task added
 
 **Phase BL-3: Mempool Integration** (Use baseline) 🎯 PRIORITY 3
-- [X] T103 Modify mempool_analyzer.py to accept baseline reference from orchestrator
-- [X] T104 Update estimate_price() to use baseline price range for Y-axis scaling
-- [X] T105 Implement get_combined_history() returning baseline + mempool data points
-- [X] T106 Update WebSocketMessage in api.py to include baseline data (price, range)
+- [X] T103 Modify mempool_analyzer.py to accept baseline reference from orchestrator ✅
+- [X] T103a [BUG] Fix orchestrator initialization: Pass initial baseline to analyzer (commit 3bcd828) ✅
+- [X] T104 Update estimate_price() to use baseline price range for Y-axis scaling ✅
+- [X] T105 Implement get_combined_history() returning baseline + mempool data points ✅
+- [X] T106 Update WebSocketMessage in api.py to include baseline data (price, range) ✅
 
 **Phase BL-4: Frontend Visualization** (Dual timeline) 🎯 PRIORITY 4
 - [X] T107 Modify mempool-viz.js to render baseline points (cyan) vs mempool (orange)
@@ -428,9 +431,19 @@ With multiple developers/agents:
 
 ---
 
-*Tasks Document v1.0*
+*Tasks Document v1.1*
 *Generated*: 2025-10-19
-*Status*: Ready for implementation
-*Total Tasks*: 104 tasks across 7 phases
-*MVP Scope*: Phase 1-3 (T001-T064) = 64 tasks
+*Updated*: 2025-10-21 (bugfix tasks added)
+*Status*: Implementation complete - baseline functional
+*Total Tasks*: 141 tasks (including bugfixes and enhancements)
+*MVP Scope*: Phase 1-3 (T001-T064) = 64 tasks ✅ COMPLETE
+*Completed*: 124/141 tasks (87.9%)
+*Remaining*: 17 tasks (manual validation + optional refactoring)
 *Parallel Opportunities*: 35+ tasks marked [P]
+
+**Recent Bugfixes** (2025-10-21):
+- T097a: Histogram counting bug (histogram[bin] += amount → += 1.0)
+- T097b: Stencil slice length bug (804 → 803 elements)
+- T103a: Orchestrator initialization bug (baseline not passed to analyzer)
+
+**Result**: Baseline now calculates real price ($112k) instead of fallback ($100k)
