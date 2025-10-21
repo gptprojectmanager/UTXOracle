@@ -36,7 +36,7 @@ async def test_zmq_connect_to_bitcoin_core():
         mock_socket = MagicMock()
         mock_context.return_value.socket.return_value = mock_socket
 
-        listener = ZMQListener(endpoint="tcp://127.0.0.1:28332")
+        listener = ZMQListener(tx_endpoint="tcp://127.0.0.1:28332")
 
         # Act: Connect to Bitcoin Core
         await listener.connect()
@@ -61,7 +61,7 @@ async def test_zmq_connection_status():
     """
     # Arrange: Create listener
     with patch("zmq.asyncio.Context"):
-        listener = ZMQListener(endpoint="tcp://127.0.0.1:28332")
+        listener = ZMQListener(tx_endpoint="tcp://127.0.0.1:28332")
 
         # Assert: Not connected initially
         assert not listener.is_connected, "Listener should not be connected initially"
@@ -98,7 +98,7 @@ async def test_zmq_connection_error_handling():
         mock_socket.connect.side_effect = Exception("Connection refused")
         mock_context.return_value.socket.return_value = mock_socket
 
-        listener = ZMQListener(endpoint="tcp://127.0.0.1:28332")
+        listener = ZMQListener(tx_endpoint="tcp://127.0.0.1:28332")
 
         # Act & Assert: Connection should raise ConnectionError
         with pytest.raises(ConnectionError) as exc_info:
@@ -159,7 +159,7 @@ async def test_zmq_stream_transactions():
 
         mock_context.return_value.socket.return_value = mock_socket
 
-        listener = ZMQListener(endpoint="tcp://127.0.0.1:28332")
+        listener = ZMQListener(tx_endpoint="tcp://127.0.0.1:28332")
         await listener.connect()
 
         # Act: Stream transactions
@@ -230,7 +230,7 @@ async def test_zmq_stream_handles_3_part_messages():
 
         mock_context.return_value.socket.return_value = mock_socket
 
-        listener = ZMQListener(endpoint="tcp://127.0.0.1:28332")
+        listener = ZMQListener(tx_endpoint="tcp://127.0.0.1:28332")
         await listener.connect()
 
         # Act: Stream transactions
@@ -285,7 +285,7 @@ async def test_zmq_stream_handles_malformed_messages():
 
         mock_context.return_value.socket.return_value = mock_socket
 
-        listener = ZMQListener(endpoint="tcp://127.0.0.1:28332")
+        listener = ZMQListener(tx_endpoint="tcp://127.0.0.1:28332")
         await listener.connect()
 
         # Act: Stream transactions

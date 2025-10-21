@@ -88,7 +88,7 @@ async def test_end_to_end_zmq_to_websocket():
         mock_zmq_context.return_value.socket.return_value = mock_socket
 
         # Create all modules
-        zmq_listener = ZMQListener(endpoint="tcp://127.0.0.1:28332")
+        zmq_listener = ZMQListener(tx_endpoint="tcp://127.0.0.1:28332")
         tx_processor = TransactionProcessor()
         mempool_analyzer = MempoolAnalyzer()
         data_streamer = DataStreamer()
@@ -248,7 +248,7 @@ async def test_pipeline_with_multiple_transactions():
         mock_zmq_context.return_value.socket.return_value = mock_socket
 
         # Create modules
-        zmq_listener = ZMQListener(endpoint="tcp://127.0.0.1:28332")
+        zmq_listener = ZMQListener(tx_endpoint="tcp://127.0.0.1:28332")
         tx_processor = TransactionProcessor()
         mempool_analyzer = MempoolAnalyzer()
         data_streamer = DataStreamer()
@@ -388,7 +388,7 @@ async def test_pipeline_filters_invalid_transactions():
         mock_zmq_context.return_value.socket.return_value = mock_socket
 
         # Create modules
-        zmq_listener = ZMQListener(endpoint="tcp://127.0.0.1:28332")
+        zmq_listener = ZMQListener(tx_endpoint="tcp://127.0.0.1:28332")
         tx_processor = TransactionProcessor()
         mempool_analyzer = MempoolAnalyzer()
 
