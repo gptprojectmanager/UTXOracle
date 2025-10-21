@@ -217,3 +217,118 @@ def test_confidence_warning_display():
     assert ".confidence-low" in css_content or "confidence-low" in css_content, (
         "Missing low confidence CSS"
     )
+
+
+# =============================================================================
+# T107-T109: Baseline Visualization Tests (Phase BL-4)
+# =============================================================================
+
+
+def test_baseline_rendering_code_present():
+    """
+    Test that baseline rendering functionality exists in frontend code.
+
+    Requirements (T107-T109):
+    - T107: Render baseline points (cyan) vs mempool (orange)
+    - T108: Add baseline price line indicator (horizontal reference)
+    - T109: Use baseline price_min/max for Y-axis scaling
+
+    This is a STRUCTURAL test (checks code elements exist).
+    Visual rendering requires browser environment - see T110 manual testing.
+
+    Tasks: T107, T108, T109 [Phase BL-4]
+    """
+    # Assert: JavaScript visualization module exists
+    js_path = Path("live/frontend/mempool-viz.js")
+    assert js_path.exists(), f"Visualization JS not found: {js_path}"
+
+    js_content = js_path.read_text()
+
+    # T107: Check for baseline data storage
+    has_baseline_storage = any(
+        [
+            "this.baseline" in js_content,
+            "baseline =" in js_content,
+        ]
+    )
+    assert has_baseline_storage, (
+        "T107: JavaScript should store baseline data (this.baseline or baseline variable)"
+    )
+
+    # T107: Check for baseline color (cyan) definition
+    has_cyan_color = any(
+        [
+            "#00FFFF" in js_content,
+            "00FFFF" in js_content,
+            "cyan" in js_content.lower(),
+        ]
+    )
+    assert has_cyan_color, (
+        "T107: JavaScript should define cyan color for baseline (#00FFFF)"
+    )
+
+    # T108: Check for baseline line drawing method (must be a function, not just comment)
+    has_baseline_line_method = (
+        "drawBaselineLine(" in js_content
+        or "drawBaselineLine ()" in js_content
+        or "function drawBaselineLine" in js_content
+    )
+    assert has_baseline_line_method, (
+        "T108: JavaScript should have drawBaselineLine() method implementation"
+    )
+
+    # T108: Check that baseline line is actually called in render()
+    # Must be "this.drawBaselineLine()" not just the function definition
+    render_calls_baseline = "this.drawBaselineLine()" in js_content
+    assert render_calls_baseline, (
+        "T108: render() method should call this.drawBaselineLine()"
+    )
+
+    # T109: Check for baseline price range usage
+    has_price_range = any(
+        [
+            "price_min" in js_content and "price_max" in js_content,
+            "priceMin" in js_content and "priceMax" in js_content,
+            "baseline.price_min" in js_content or "baseline.price_max" in js_content,
+        ]
+    )
+    assert has_price_range, (
+        "T109: JavaScript should use baseline price_min/price_max for Y-axis scaling"
+    )
+
+    # T109: Check for Y-axis scaling logic
+    has_scaling = any(
+        [
+            "scaleY" in js_content,
+            "scale_y" in js_content,
+            "priceToY" in js_content,
+        ]
+    )
+    assert has_scaling, (
+        "T109: JavaScript should have Y-axis scaling method (scaleY or priceToY)"
+    )
+
+    # T109: Check that updateData accepts baseline parameter
+    has_update_with_baseline = (
+        "updateData(transactions, baseline" in js_content
+        or "updateData (transactions, baseline" in js_content
+    )
+    assert has_update_with_baseline, (
+        "T109: updateData() should accept baseline parameter (transactions, baseline)"
+    )
+
+    # T109: Check that baseline price_min/price_max is used for scaling
+    uses_baseline_range = (
+        "baseline.price_min" in js_content or "baseline.priceMin" in js_content
+    ) and ("baseline.price_max" in js_content or "baseline.priceMax" in js_content)
+    assert uses_baseline_range, (
+        "T109: Should use baseline.price_min and baseline.price_max for Y-axis scaling"
+    )
+
+    # T107-T109: Check that handleMempoolUpdate passes baseline to visualizer
+    passes_baseline_to_visualizer = "data.baseline" in js_content and (
+        "updateData(" in js_content or "update_data(" in js_content
+    )
+    assert passes_baseline_to_visualizer, (
+        "T107-T109: handleMempoolUpdate should pass data.baseline to visualizer.updateData()"
+    )

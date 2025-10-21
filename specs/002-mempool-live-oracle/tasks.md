@@ -195,9 +195,9 @@
 - [X] T106 Update WebSocketMessage in api.py to include baseline data (price, range)
 
 **Phase BL-4: Frontend Visualization** (Dual timeline) 🎯 PRIORITY 4
-- [ ] T107 Modify mempool-viz.js to render baseline points (cyan) vs mempool (orange)
-- [ ] T108 Add baseline price line indicator (horizontal reference line)
-- [ ] T109 Implement timeline split: LEFT=baseline (24h historical), RIGHT=mempool (3h real-time)
+- [X] T107 Modify mempool-viz.js to render baseline points (cyan) vs mempool (orange)
+- [X] T108 Add baseline price line indicator (horizontal reference line)
+- [X] T109 Implement timeline split: LEFT=baseline (24h historical), RIGHT=mempool (3h real-time)
 - [ ] T110 Manual test: Verify baseline updates on new block and mempool scales correctly
 
 **Phase BL-5: Code Refactoring** (Optional quality improvement) ⚠️ OPTIONAL

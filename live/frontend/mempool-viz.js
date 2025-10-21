@@ -275,6 +275,11 @@ class MempoolVisualizer {
         this.priceMin = 0;
         this.priceMax = 100000;
 
+        // T107-T109: Baseline data storage and colors
+        this.baseline = null;
+        this.baselineColor = '#00FFFF';  // Cyan for baseline points
+        this.baselineLineColor = 'rgba(0, 255, 255, 0.5)';  // Cyan with 50% opacity
+
         // T074a: Fixed 5-minute scrolling window
         this.timeWindowSeconds = 300;  // 5 minutes
 
@@ -289,7 +294,12 @@ class MempoolVisualizer {
         console.log('[MempoolVisualizer] Initialized with scrolling timeline');
     }
 
-    updateData(transactions) {
+    updateData(transactions, baseline = null) {
+        // T107-T109: Store baseline data if provided
+        if (baseline) {
+            this.baseline = baseline;
+        }
+
         if (!transactions || transactions.length === 0) {
             return;
         }
@@ -304,13 +314,20 @@ class MempoolVisualizer {
             return;
         }
 
-        const prices = this.transactions.map(tx => tx.price);
-        const rawMin = Math.min(...prices);
-        const rawMax = Math.max(...prices);
-        const padding = (rawMax - rawMin) * 0.05;
+        // T109: Use baseline price range for Y-axis scaling if available
+        if (this.baseline && this.baseline.price_min && this.baseline.price_max) {
+            this.priceMin = this.baseline.price_min;
+            this.priceMax = this.baseline.price_max;
+        } else {
+            // Fallback to transaction-based scaling
+            const prices = this.transactions.map(tx => tx.price);
+            const rawMin = Math.min(...prices);
+            const rawMax = Math.max(...prices);
+            const padding = (rawMax - rawMin) * 0.05;
 
-        this.priceMin = rawMin - padding;
-        this.priceMax = rawMax + padding;
+            this.priceMin = rawMin - padding;
+            this.priceMax = rawMax + padding;
+        }
     }
 
     scaleY(price) {
@@ -389,6 +406,12 @@ class MempoolVisualizer {
     render() {
         this.clear();
         this.drawAxes();
+
+        // T108: Draw baseline price line BEFORE points (so points render on top)
+        if (this.baseline) {
+            this.drawBaselineLine();
+        }
+
         this.drawPoints();
 
         if (this.hoveredTransaction) {
@@ -401,6 +424,42 @@ class MempoolVisualizer {
     clear() {
         this.ctx.fillStyle = this.backgroundColor;
         this.ctx.fillRect(0, 0, this.width, this.height);
+    }
+
+    // T108: Draw baseline price line indicator (horizontal reference)
+    drawBaselineLine() {
+        if (!this.baseline || !this.baseline.price) {
+            return;
+        }
+
+        const y = this.scaleY(this.baseline.price);
+
+        // Draw dashed horizontal line across canvas
+        this.ctx.save();
+        this.ctx.strokeStyle = this.baselineLineColor;
+        this.ctx.lineWidth = 2;
+        this.ctx.setLineDash([5, 5]);
+
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.marginLeft, y);
+        this.ctx.lineTo(this.marginLeft + this.plotWidth, y);
+        this.ctx.stroke();
+
+        this.ctx.setLineDash([]);
+        this.ctx.restore();
+
+        // Draw label at right edge
+        this.ctx.save();
+        this.ctx.fillStyle = this.baselineColor;
+        this.ctx.font = '12px monospace';
+        this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'middle';
+
+        const label = `Baseline: $${Math.round(this.baseline.price).toLocaleString()}`;
+        const labelX = this.marginLeft + this.plotWidth + 5;
+        this.ctx.fillText(label, labelX, y);
+
+        this.ctx.restore();
     }
 
     drawAxes() {
@@ -628,8 +687,9 @@ class UTXOracleLive {
         this.uiController.updateConfidence(data.confidence);
         this.uiController.updateStats(data.stats);
 
+        // T107-T109: Pass baseline data to visualizer along with transactions
         if (data.transactions && data.transactions.length > 0) {
-            this.visualizer.updateData(data.transactions);
+            this.visualizer.updateData(data.transactions, data.baseline || null);
         }
 
         if (Math.random() < 0.1) {
@@ -637,7 +697,8 @@ class UTXOracleLive {
                 price: data.price,
                 confidence: data.confidence,
                 active: data.stats?.active_in_window,
-                transactions: data.transactions?.length || 0
+                transactions: data.transactions?.length || 0,
+                baseline: data.baseline ? `$${Math.round(data.baseline.price).toLocaleString()}` : 'none'
             });
         }
     }

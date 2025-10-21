@@ -1,66 +1,26 @@
 {
   "testModules": [
     {
-      "moduleId": "tests/test_api.py",
+      "moduleId": "tests/integration/test_frontend.py",
       "tests": [
         {
-          "name": "test_websocket_broadcast",
-          "fullName": "tests/test_api.py::test_websocket_broadcast",
+          "name": "test_stats_panel_rendering",
+          "fullName": "tests/integration/test_frontend.py::test_stats_panel_rendering",
           "state": "passed"
         },
         {
-          "name": "test_websocket_endpoint_connection",
-          "fullName": "tests/test_api.py::test_websocket_endpoint_connection",
-          "state": "failed",
-          "errors": [
-            {
-              "message": "E   starlette.websockets.WebSocketDisconnect"
-            }
-          ]
-        },
-        {
-          "name": "test_websocket_receives_mempool_updates",
-          "fullName": "tests/test_api.py::test_websocket_receives_mempool_updates",
-          "state": "failed",
-          "errors": [
-            {
-              "message": "E   starlette.websockets.WebSocketDisconnect"
-            }
-          ]
-        },
-        {
-          "name": "test_websocket_multiple_clients",
-          "fullName": "tests/test_api.py::test_websocket_multiple_clients",
-          "state": "failed",
-          "errors": [
-            {
-              "message": "E   starlette.websockets.WebSocketDisconnect"
-            }
-          ]
-        },
-        {
-          "name": "test_websocket_client_disconnect_handling",
-          "fullName": "tests/test_api.py::test_websocket_client_disconnect_handling",
+          "name": "test_scatter_plot_renders_transactions",
+          "fullName": "tests/integration/test_frontend.py::test_scatter_plot_renders_transactions",
           "state": "passed"
         },
         {
-          "name": "test_websocket_message_serialization",
-          "fullName": "tests/test_api.py::test_websocket_message_serialization",
+          "name": "test_confidence_warning_display",
+          "fullName": "tests/integration/test_frontend.py::test_confidence_warning_display",
           "state": "passed"
         },
         {
-          "name": "test_websocket_broadcast_rate_limiting",
-          "fullName": "tests/test_api.py::test_websocket_broadcast_rate_limiting",
-          "state": "passed"
-        },
-        {
-          "name": "test_websocket_includes_transaction_history",
-          "fullName": "tests/test_api.py::test_websocket_includes_transaction_history",
-          "state": "passed"
-        },
-        {
-          "name": "test_websocket_broadcast_includes_baseline",
-          "fullName": "tests/test_api.py::test_websocket_broadcast_includes_baseline",
+          "name": "test_baseline_rendering_code_present",
+          "fullName": "tests/integration/test_frontend.py::test_baseline_rendering_code_present",
           "state": "passed"
         }
       ]
