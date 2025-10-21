@@ -10,6 +10,11 @@ from collections import deque
 from dataclasses import dataclass
 from typing import List, Tuple, Optional
 import time
+import os
+import math
+import platform
+
+from .bitcoin_rpc import BitcoinRPC
 
 logger = logging.getLogger("live.baseline")
 
@@ -26,7 +31,7 @@ class BaselineResult:
 
 
 class BaselineCalculator:
-    def __init__(self, window_blocks: int = 144):
+    def __init__(self, window_blocks: int = 144, bitcoin_datadir: str = None):
         self.window_blocks = window_blocks
         self.blocks = deque(maxlen=window_blocks)
         self.last_updated = 0.0
@@ -34,6 +39,44 @@ class BaselineCalculator:
         self.histogram_bins = self._initialize_histogram_bins()
         self.smooth_stencil = self._create_smooth_stencil()
         self.spike_stencil = self._create_spike_stencil()
+
+        # T112 & T115: RPC initialization
+        self.bitcoin_datadir = bitcoin_datadir or self._get_default_datadir()
+        try:
+            self.rpc = BitcoinRPC(datadir=self.bitcoin_datadir)
+            # Load historical blocks at startup
+            logger.info("Loading last 144 blocks from blockchain for baseline...")
+            self._load_historical_blocks()
+            logger.info(
+                f"Baseline initialized with {len(self.blocks)} blocks and "
+                f"{sum(len(b['transactions']) for b in self.blocks)} transactions."
+            )
+
+            # Calculate baseline immediately after loading blocks
+            if len(self.blocks) >= 10:
+                baseline_result = self.calculate_baseline()
+                if baseline_result:
+                    logger.info(
+                        f"Initial baseline calculated: ${baseline_result.price:,.0f}"
+                    )
+
+        except Exception as e:
+            logger.error(
+                f"Failed to initialize BaselineCalculator RPC: {e}", exc_info=True
+            )
+            # Allow startup without baseline if node is offline
+            self.rpc = None
+
+    def _get_default_datadir(self):
+        """Helper to find default Bitcoin data directory."""
+        system = os.name
+        if system == "nt":  # Windows
+            return os.path.join(os.environ.get("APPDATA", ""), "Bitcoin")
+
+        if platform.system() == "Darwin":  # macOS
+            return os.path.expanduser("~/Library/Application Support/Bitcoin")
+
+        return os.path.expanduser("~/.bitcoin")  # Linux
 
     def _initialize_histogram_bins(self) -> List[float]:
         """Initialize histogram bins (same as UTXOracle.py)."""
@@ -78,12 +121,73 @@ class BaselineCalculator:
         s[541] = 0.003792850444811335
         s[601] = 0.003688240815848247
         s[602] = 0.002392400117402263
-        s[636] = 0.001280993059008106
-        s[661] = 0.001654665137536031
-        s[662] = 0.001395501347054946
-        s[741] = 0.001154279140906312
-        s[801] = 0.000832244504868709
         return s
+
+    def _load_historical_blocks(self):
+        """
+        T113 & T114: Load the last 144 blocks from the node to establish a baseline.
+        Uses RPC `getblock` with verbosity=2.
+        """
+        if not self.rpc:
+            logger.warning("RPC not available, skipping historical block load.")
+            return
+
+        current_height = self.rpc.ask_node("getblockcount")
+        start_height = current_height - self.window_blocks + 1
+
+        logger.info(f"Fetching blocks from {start_height} to {current_height}...")
+
+        for height in range(start_height, current_height + 1):
+            try:
+                block_hash = self.rpc.ask_node("getblockhash", [height])
+                # Verbosity=2 gives parsed transaction data
+                block_data = self.rpc.ask_node("getblock", [block_hash, 2])
+                self._process_block_transactions(block_data)
+            except Exception as e:
+                logger.error(f"Failed to fetch or process block {height}: {e}")
+                # Continue to next block if one fails
+                continue
+
+        self.last_block_height = current_height
+
+    def _process_block_transactions(self, block: dict):
+        """
+        Extracts, filters, and adds transactions from a block to the baseline.
+        Filter logic from UTXOracle.py Step 6.
+        """
+        transactions = []
+        block_time = block["time"]
+        block_height = block["height"]
+
+        for tx in block["tx"]:
+            # Filter 1: Not coinbase
+            is_coinbase = len(tx["vin"]) == 1 and "coinbase" in tx["vin"][0]
+            if is_coinbase:
+                continue
+
+            # Filter 2: <= 5 inputs and exactly 2 outputs
+            if not (len(tx["vin"]) <= 5 and len(tx["vout"]) == 2):
+                continue
+
+            # Filter 3: No OP_RETURN outputs
+            has_op_return = any(
+                "OP_RETURN" in vout["scriptPubKey"].get("asm", "")
+                for vout in tx["vout"]
+            )
+            if has_op_return:
+                continue
+
+            # If filters pass, add both outputs to transactions list
+            for vout in tx["vout"]:
+                amount_btc = vout["value"]
+                # Add transaction tuple (amount, timestamp)
+                transactions.append((amount_btc, block_time))
+
+        if transactions:
+            self.add_block(transactions, block_height)
+            logger.debug(
+                f"Added {len(transactions)} transactions from block {block_height}"
+            )
 
     def add_block(self, transactions: List[Tuple[float, float]], height: int):
         """Add a block with transactions to the rolling window."""
@@ -92,10 +196,25 @@ class BaselineCalculator:
 
     def _get_bin_index(self, amount_btc: float) -> int:
         """Find histogram bin index for given BTC amount."""
-        for i, bin_val in enumerate(self.histogram_bins):
-            if amount_btc <= bin_val:
-                return i
-        return len(self.histogram_bins) - 1
+        if amount_btc <= 0:
+            return 0
+        # Optimized search using log10, derived from binning logic
+        # bin_value = 10 ** (exponent + b/200)
+        # log10(bin_value) = exponent + b/200
+        # (log10(bin_value) - exponent) * 200 = b
+        log_amount = math.log10(amount_btc)
+        exponent = math.floor(log_amount)
+        if exponent < -6:
+            return 0
+        if exponent >= 6:
+            return len(self.histogram_bins) - 1
+
+        b = (log_amount - exponent) * 200
+
+        # Bin index = (exponent - (-6)) * 200 + b
+        index = int((exponent + 6) * 200 + b) + 1
+
+        return min(index, len(self.histogram_bins) - 1)
 
     def _apply_step7_normalize(self, histogram: List[float]) -> List[float]:
         """
@@ -171,8 +290,8 @@ class BaselineCalculator:
 
         # Center slide: if zero slide, 0.001 BTC = $100 (price $100k)
         center_p001 = 601
-        left_p001 = center_p001 - int((len(self.spike_stencil) + 1) / 2)
-        right_p001 = center_p001 + int((len(self.spike_stencil) + 1) / 2)
+        left_p001 = center_p001 - len(self.spike_stencil) // 2
+        right_p001 = left_p001 + len(self.spike_stencil)
 
         # Slide range: -141 ($500k) to +201 ($5k)
         min_slide = -141
@@ -266,7 +385,7 @@ class BaselineCalculator:
         for amount_btc, timestamp in all_transactions:
             bin_index = self._get_bin_index(amount_btc)
             if 0 <= bin_index < len(histogram):
-                histogram[bin_index] += amount_btc
+                histogram[bin_index] += 1.0
 
         # Step 7: Remove round BTC amounts and normalize
         histogram = self._apply_step7_normalize(histogram)
