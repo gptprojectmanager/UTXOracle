@@ -186,6 +186,18 @@ class DataStreamer:
                 from live.shared.models import BaselineData
 
                 bl = combined["baseline"]
+
+                # T107-T109: Convert baseline transactions to TransactionPoint format
+                baseline_transactions = []
+                if hasattr(bl, "transactions") and bl.transactions:
+                    for amount_btc, timestamp in bl.transactions:
+                        baseline_transactions.append(
+                            TransactionPoint(
+                                timestamp=timestamp,
+                                price=bl.price,  # Use baseline price for all points
+                            )
+                        )
+
                 baseline_data = BaselineData(
                     price=bl.price,
                     price_min=bl.price_min,
@@ -193,6 +205,7 @@ class DataStreamer:
                     confidence=bl.confidence,
                     timestamp=bl.timestamp,
                     block_height=bl.block_height,
+                    transactions=baseline_transactions,
                 )
 
         stats = SystemStats(

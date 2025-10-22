@@ -529,3 +529,94 @@ async def test_websocket_broadcast_includes_baseline():
     msg_data = json.loads(mock_ws.messages[0])
     assert "baseline" in msg_data["data"]
     assert msg_data["data"]["baseline"]["price"] == 113600.0
+
+
+@pytest.mark.asyncio
+async def test_baseline_transactions_serialization():
+    """
+    Test that baseline transaction data is serialized and sent to frontend.
+
+    Requirements (T107-T109):
+    - Backend must expose baseline transaction points
+    - Frontend needs transaction data to render dense cyan point cloud
+    - WebSocket message must include baseline.transactions array
+
+    Expected:
+    - baseline.transactions is populated with TransactionPoint objects
+    - Each point has timestamp and price fields
+    - At least 1000 points for dense visualization (target: 5k-10k)
+    """
+    from live.backend.baseline_calculator import BaselineCalculator
+    from live.backend.mempool_analyzer import MempoolAnalyzer
+
+    # Create baseline with transaction data
+    baseline_calc = BaselineCalculator()
+
+    # Simulate 3 blocks with transactions
+    for i in range(3):
+        transactions = [
+            (0.5 + j * 0.1, time.time() - 3600 * i - j * 10)
+            for j in range(100)  # 100 transactions per block
+        ]
+        baseline_calc.add_block(transactions, height=900000 + i)
+
+    baseline = baseline_calc.calculate_baseline()
+    assert baseline is not None
+    assert hasattr(baseline, "transactions"), (
+        "BaselineResult must have 'transactions' field"
+    )
+    assert baseline.transactions is not None, "Baseline transactions must be populated"
+    assert len(baseline.transactions) >= 100, (
+        f"Expected at least 100 transactions, got {len(baseline.transactions)}"
+    )
+
+    # Create analyzer and set baseline
+    analyzer = MempoolAnalyzer()
+    analyzer.set_baseline(baseline)
+
+    # Create streamer
+    streamer = DataStreamer()
+    streamer.set_analyzer(analyzer)
+
+    # Mock WebSocket
+    class MockWebSocket:
+        def __init__(self):
+            self.messages = []
+
+        async def send_text(self, text):
+            self.messages.append(text)
+
+    mock_ws = MockWebSocket()
+    await streamer.register_client(mock_ws)
+
+    # Broadcast state
+    state = MempoolState(
+        price=113700.0,
+        confidence=0.85,
+        active_tx_count=100,
+        total_received=200,
+        total_filtered=100,
+        uptime_seconds=60.0,
+    )
+    await streamer.broadcast(state)
+
+    # Verify baseline transactions are in WebSocket message
+    assert len(mock_ws.messages) == 1
+    msg_data = json.loads(mock_ws.messages[0])
+
+    baseline_data = msg_data["data"]["baseline"]
+    assert "transactions" in baseline_data, "baseline must have 'transactions' field"
+    assert isinstance(baseline_data["transactions"], list), (
+        "baseline.transactions must be a list"
+    )
+    assert len(baseline_data["transactions"]) >= 100, (
+        f"Expected at least 100 transaction points, got {len(baseline_data['transactions'])}"
+    )
+
+    # Verify TransactionPoint structure
+    first_tx = baseline_data["transactions"][0]
+    assert "timestamp" in first_tx, "TransactionPoint must have 'timestamp'"
+    assert "price" in first_tx, "TransactionPoint must have 'price'"
+    assert isinstance(first_tx["timestamp"], (int, float)), "timestamp must be numeric"
+    assert isinstance(first_tx["price"], (int, float)), "price must be numeric"
+    assert first_tx["price"] > 0, "price must be positive"

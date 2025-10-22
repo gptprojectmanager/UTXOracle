@@ -218,6 +218,10 @@ class BaselineData(BaseModel):
     confidence: float = Field(..., ge=0, le=1, description="Baseline confidence [0-1]")
     timestamp: float = Field(..., gt=0, description="Last updated (Unix timestamp)")
     block_height: Optional[int] = Field(None, description="Latest block height")
+    transactions: List["TransactionPoint"] = Field(
+        default_factory=list,
+        description="Baseline transaction points for visualization (T107-T109)",
+    )
 
 
 class TransactionPoint(BaseModel):

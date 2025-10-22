@@ -64,3 +64,47 @@ def test_calculate_baseline_with_sufficient_data():
     assert result is not None, (
         "calculate_baseline() should return BaselineResult with sufficient data"
     )
+
+
+def test_baseline_result_includes_transactions():
+    """
+    Test that BaselineResult includes transaction data for visualization.
+
+    Requirements (T107-T109):
+    - BaselineResult must have 'transactions' field
+    - Transactions list should contain (amount_btc, timestamp) tuples
+    - Frontend needs this data to render dense cyan point cloud
+
+    Expected:
+    - result.transactions is not None
+    - result.transactions is a list
+    - Each element is a (float, float) tuple
+    - At least some transactions are included (not empty)
+    """
+    # Arrange
+    calc = BaselineCalculator(window_blocks=144)
+
+    # Add 5 blocks with transactions
+    for i in range(5):
+        transactions = [(0.5 + j * 0.1, time.time() - i * 600 - j) for j in range(50)]
+        calc.add_block(transactions, height=900000 + i)
+
+    # Act
+    result = calc.calculate_baseline()
+
+    # Assert
+    assert result is not None
+    assert hasattr(result, "transactions"), (
+        "BaselineResult must have 'transactions' field for visualization"
+    )
+    assert result.transactions is not None, "transactions field must be populated"
+    assert isinstance(result.transactions, list), "transactions must be a list"
+    assert len(result.transactions) > 0, "transactions list must not be empty"
+
+    # Verify structure: list of (amount_btc, timestamp) tuples
+    first_tx = result.transactions[0]
+    assert isinstance(first_tx, tuple), "Each transaction must be a tuple"
+    assert len(first_tx) == 2, "Each transaction tuple must have 2 elements"
+    amount_btc, timestamp = first_tx
+    assert isinstance(amount_btc, float), "amount_btc must be float"
+    assert isinstance(timestamp, (int, float)), "timestamp must be numeric"

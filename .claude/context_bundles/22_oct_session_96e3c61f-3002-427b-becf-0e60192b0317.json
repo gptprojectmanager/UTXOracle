@@ -861,7 +861,298 @@
       "timestamp": "2025-10-22T15:52:56.205186",
       "file_path": "/media/sam/1TB/UTXOracle/VISUALIZATION_GAP_REPORT.md",
       "content_length": 6866
+    },
+    {
+      "operation": "task",
+      "timestamp": "2025-10-22T15:53:16.937730",
+      "subagent_type": "visualization-renderer",
+      "prompt": "**URGENT VISUAL VERIFICATION**: User reports current visualization does NOT match target layout show..."
+    },
+    {
+      "operation": "todowrite",
+      "timestamp": "2025-10-22T15:53:31.243015",
+      "todo_count": 7
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T15:53:39.368029",
+      "file_path": "/media/sam/1TB/UTXOracle/docs/VISUALIZATION_FIX_PLAN.md"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T15:53:47.178557",
+      "file_path": "/media/sam/1TB/UTXOracle/docs/VISUALIZATION_FIX_PLAN.md"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T15:53:57.313390",
+      "file_path": "/media/sam/1TB/UTXOracle/docs/VISUALIZATION_FIX_PLAN.md"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T15:54:09.411607",
+      "file_path": "/media/sam/1TB/UTXOracle/live/shared/models.py"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T15:54:51.440947",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/test_api.py"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T15:54:59.753823",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/test_api.py"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T15:55:07.602139",
+      "command": "wc -l /media/sam/1TB/UTXOracle/tests/test_api.py",
+      "description": "Count lines in test_api.py"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T15:55:13.909107",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/test_api.py"
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-22T15:55:59.349682",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/test_api.py",
+      "old_string": "    # Verify message includes baseline\n    assert len(mock_ws.messages) == 1\n    msg_data = json.loa..."
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T15:56:47.783473",
+      "file_path": "/media/sam/1TB/UTXOracle/live/backend/baseline_calculator.py"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T15:57:20.155698",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/test_baseline_calculator.py"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T15:57:28.394561",
+      "command": "wc -l /media/sam/1TB/UTXOracle/tests/test_baseline_calculator.py",
+      "description": "Count lines in test file"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T15:57:35.295624",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/test_baseline_calculator.py"
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-22T15:58:05.774746",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/test_baseline_calculator.py",
+      "old_string": "    # Assert: Result should not be None\n    assert result is not None, (\n        \"calculate_baseline..."
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T15:59:15.742427",
+      "command": "uv run pytest tests/test_baseline_calculator.py::test_baseline_result_includes_transactions -xvs 2>&1 | head -50",
+      "description": "Run new test (should FAIL)"
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-22T15:59:40.680659",
+      "file_path": "/media/sam/1TB/UTXOracle/live/backend/baseline_calculator.py",
+      "old_string": "@dataclass\nclass BaselineResult:\n    price: float\n    price_min: float\n    price_max: float\n    conf..."
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T15:59:52.102154",
+      "file_path": "/media/sam/1TB/UTXOracle/live/backend/baseline_calculator.py"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:00:01.130713",
+      "file_path": "/media/sam/1TB/UTXOracle/live/backend/baseline_calculator.py"
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-22T16:00:30.824195",
+      "file_path": "/media/sam/1TB/UTXOracle/live/backend/baseline_calculator.py",
+      "old_string": "        logger.info(\n            f\"Baseline calculated: ${exact_price:,.0f} \"\n            f\"(range $..."
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:01:41.455867",
+      "command": "uv run pytest tests/test_baseline_calculator.py::test_baseline_result_includes_transactions -xvs 2>&1 | tail -20",
+      "description": "Verify test passes (GREEN phase)"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:01:52.708852",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/test_models.py"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:02:01.922834",
+      "command": "grep -n \"BaselineData\" /media/sam/1TB/UTXOracle/tests/test_models.py | head -5",
+      "description": "Find BaselineData tests"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:02:09.701419",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/test_models.py"
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-22T16:02:41.515356",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/test_models.py",
+      "old_string": "    assert baseline.price == 113600.0\n    assert baseline.price_min < baseline.price < baseline.pric..."
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:02:50.617145",
+      "command": "uv run pytest tests/test_models.py::test_baseline_data_with_transactions -xvs 2>&1 | grep -A 10 \"FAILED\\|AssertionError\\|TypeError\"",
+      "description": "Run test (should FAIL)"
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-22T16:03:15.388009",
+      "file_path": "/media/sam/1TB/UTXOracle/live/shared/models.py",
+      "old_string": "class BaselineData(BaseModel):\n    \"\"\"Baseline price data from on-chain blocks (T106)\"\"\"\n\n    price:..."
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:03:25.543447",
+      "command": "uv run pytest tests/test_models.py::test_baseline_data_with_transactions -xvs 2>&1 | tail -5",
+      "description": "Verify test passes"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:03:36.682537",
+      "command": "grep -n \"baseline_data = BaselineData\" /media/sam/1TB/UTXOracle/live/backend/api.py",
+      "description": "Find where BaselineData is created"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:03:44.454198",
+      "file_path": "/media/sam/1TB/UTXOracle/live/backend/api.py"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:05:31.572024",
+      "command": "timeout 120 uv run pytest tests/test_api.py::test_baseline_transactions_serialization -xvs 2>&1 | tail -50",
+      "description": "Run async test with longer timeout"
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-22T16:06:01.111573",
+      "file_path": "/media/sam/1TB/UTXOracle/live/backend/api.py",
+      "old_string": "            # T106: Get combined history (baseline + mempool)\n            combined = self.analyzer.g..."
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:07:13.811564",
+      "command": "timeout 120 uv run pytest tests/test_api.py::test_baseline_transactions_serialization -xvs 2>&1 | tail -10",
+      "description": "Verify test passes (GREEN phase)"
+    },
+    {
+      "operation": "todowrite",
+      "timestamp": "2025-10-22T16:07:27.490184",
+      "todo_count": 7
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:07:52.731254",
+      "command": "lsof -ti:8000 | head -1",
+      "description": "Check if backend server is running on port 8000"
+    },
+    {
+      "operation": "mcp__chrome-devtools__navigate_page",
+      "timestamp": "2025-10-22T16:07:57.391082",
+      "url": "http://localhost:8000"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:08:04.926331",
+      "command": "sleep 3",
+      "description": "Wait for page to load and WebSocket connection"
+    },
+    {
+      "operation": "mcp__chrome-devtools__take_screenshot",
+      "timestamp": "2025-10-22T16:08:09.884654",
+      "filePath": "/media/sam/1TB/UTXOracle/.playwright-mcp/frontend_baseline_verification.png",
+      "fullPage": true
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:08:13.289966",
+      "file_path": "/media/sam/1TB/UTXOracle/.playwright-mcp/frontend_baseline_verification.png"
+    },
+    {
+      "operation": "mcp__chrome-devtools__list_console_messages",
+      "timestamp": "2025-10-22T16:08:18.050538",
+      "pageSize": 50
+    },
+    {
+      "operation": "mcp__chrome-devtools__evaluate_script",
+      "timestamp": "2025-10-22T16:08:25.768828",
+      "function": "() => {\n    // Get the last WebSocket message data\n    return {\n        hasApp: typeof window.app !=..."
+    },
+    {
+      "operation": "glob",
+      "timestamp": "2025-10-22T16:08:35.392390",
+      "pattern": "live/frontend/*.js"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:08:39.747626",
+      "file_path": "/media/sam/1TB/UTXOracle/live/frontend/mempool-viz.js"
+    },
+    {
+      "operation": "grep",
+      "timestamp": "2025-10-22T16:08:45.838210",
+      "pattern": "baseline.*transactions|Baseline.*Loaded",
+      "path": "/media/sam/1TB/UTXOracle/live/frontend",
+      "output_mode": "content"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:08:58.437711",
+      "file_path": "/media/sam/1TB/UTXOracle/live/frontend/mempool-viz.js"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:09:04.626777",
+      "file_path": "/media/sam/1TB/UTXOracle/live/frontend/mempool-viz.js"
+    },
+    {
+      "operation": "grep",
+      "timestamp": "2025-10-22T16:09:12.060039",
+      "pattern": "updateData\\(|baseline\\.transactions",
+      "path": "/media/sam/1TB/UTXOracle/live/frontend/mempool-viz.js",
+      "output_mode": "content"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:09:17.951035",
+      "file_path": "/media/sam/1TB/UTXOracle/live/frontend/mempool-viz.js"
+    },
+    {
+      "operation": "glob",
+      "timestamp": "2025-10-22T16:09:56.942397",
+      "pattern": "tests/integration/*viz*.py"
+    },
+    {
+      "operation": "glob",
+      "timestamp": "2025-10-22T16:10:01.513673",
+      "pattern": "tests/integration/*.py"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:10:05.703209",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/integration/test_frontend.py"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:10:14.163353",
+      "command": "uv run pytest tests/integration/test_frontend.py::test_baseline_rendering_code_present -xvs",
+      "description": "Run baseline rendering structural test"
     }
   ],
-  "last_updated": "2025-10-22T15:52:56.205204"
+  "last_updated": "2025-10-22T16:10:14.163370"
 }

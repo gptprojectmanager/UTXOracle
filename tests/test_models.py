@@ -651,6 +651,38 @@ def test_baseline_data_validation():
     assert baseline.block_height == 800000
 
 
+def test_baseline_data_with_transactions():
+    """Test BaselineData includes transactions for visualization (T107-T109)"""
+    from live.shared.models import BaselineData, TransactionPoint
+
+    # Create baseline with transaction points
+    tx_points = [
+        TransactionPoint(timestamp=time.time() - i * 10, price=113000.0 + i * 10)
+        for i in range(100)
+    ]
+
+    baseline = BaselineData(
+        price=113600.0,
+        price_min=113000.0,
+        price_max=114200.0,
+        confidence=0.95,
+        timestamp=time.time(),
+        block_height=800000,
+        transactions=tx_points,
+    )
+
+    assert len(baseline.transactions) == 100
+    assert all(isinstance(tx, TransactionPoint) for tx in baseline.transactions)
+
+    # Verify JSON serialization works
+    json_str = baseline.model_dump_json()
+    data = json.loads(json_str)
+    assert "transactions" in data
+    assert len(data["transactions"]) == 100
+    assert data["transactions"][0]["timestamp"] > 0
+    assert data["transactions"][0]["price"] > 0
+
+
 def test_websocket_message_with_baseline():
     """Test WebSocketMessage includes baseline data (T106)"""
     from live.shared.models import BaselineData

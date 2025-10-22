@@ -28,6 +28,7 @@ class BaselineResult:
     timestamp: float
     block_height: Optional[int] = None
     num_transactions: int = 0
+    transactions: List[Tuple[float, float]] = None  # [(amount_btc, timestamp), ...]
 
 
 class BaselineCalculator:
@@ -413,6 +414,16 @@ class BaselineCalculator:
             f"confidence {confidence:.2f}"
         )
 
+        # Sample transactions for frontend visualization (max 10k for performance)
+        sampled_transactions = all_transactions
+        if len(all_transactions) > 10000:
+            import random
+
+            sampled_transactions = random.sample(all_transactions, 10000)
+            logger.info(
+                f"Sampled {len(sampled_transactions)} transactions for visualization"
+            )
+
         return BaselineResult(
             price=exact_price,
             price_min=price_min,
@@ -421,6 +432,7 @@ class BaselineCalculator:
             timestamp=time.time(),
             block_height=self.last_block_height,
             num_transactions=len(all_transactions),
+            transactions=sampled_transactions,
         )
 
     def get_state(self) -> dict:
