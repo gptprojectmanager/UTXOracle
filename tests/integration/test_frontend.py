@@ -428,3 +428,58 @@ def test_render_calls_dual_panel_methods():
     assert tooltip_uses_mempool_scale, (
         "T109: Tooltip should use this.scaleXMempool() for correct positioning in right panel"
     )
+
+
+def test_baseline_uses_real_transaction_data():
+    """
+    Test that drawBaselinePoints() uses baseline.transactions array when available.
+
+    Requirements (T107-T109 bugfix):
+    - Backend now sends baseline.transactions array with 10k points
+    - Frontend must use real data instead of synthetic fallback
+    - drawBaselinePoints() should check if this.baseline.transactions exists
+    - If exists, iterate over transactions and render each point
+    - Only fall back to synthetic if array is missing/empty
+
+    Expected code pattern:
+        if (this.baseline.transactions && this.baseline.transactions.length > 0) {
+            for (const tx of this.baseline.transactions) {
+                // render tx.timestamp, tx.price
+            }
+        } else {
+            // synthetic fallback
+        }
+
+    This test verifies the bug is fixed: frontend was ignoring real backend data.
+
+    Task: T107-T109 bugfix
+    """
+    js_path = Path("live/frontend/mempool-viz.js")
+    assert js_path.exists(), f"Visualization JS not found: {js_path}"
+
+    js_content = js_path.read_text()
+
+    # Find drawBaselinePoints() method
+    assert "drawBaselinePoints()" in js_content, "drawBaselinePoints() method not found"
+
+    # Check that method checks for this.baseline.transactions
+    checks_transactions = "this.baseline.transactions" in js_content
+    assert checks_transactions, (
+        "drawBaselinePoints() must check if this.baseline.transactions exists"
+    )
+
+    # Check that method iterates over transactions
+    iterates_transactions = (
+        "for (const tx of this.baseline.transactions)" in js_content
+        or "this.baseline.transactions.forEach" in js_content
+    )
+    assert iterates_transactions, (
+        "drawBaselinePoints() must iterate over this.baseline.transactions array to render real data"
+    )
+
+    # Check that it renders transaction points (uses tx.timestamp and tx.price)
+    uses_tx_timestamp = "tx.timestamp" in js_content
+    uses_tx_price = "tx.price" in js_content
+    assert uses_tx_timestamp and uses_tx_price, (
+        "drawBaselinePoints() must use tx.timestamp and tx.price from baseline transactions"
+    )

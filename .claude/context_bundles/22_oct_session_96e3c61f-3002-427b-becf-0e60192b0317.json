@@ -1152,7 +1152,202 @@
       "timestamp": "2025-10-22T16:10:14.163353",
       "command": "uv run pytest tests/integration/test_frontend.py::test_baseline_rendering_code_present -xvs",
       "description": "Run baseline rendering structural test"
+    },
+    {
+      "operation": "task",
+      "timestamp": "2025-10-22T16:10:38.731227",
+      "subagent_type": "visualization-renderer",
+      "prompt": "**FINAL VERIFICATION**: Backend has been fixed to send baseline transaction data. Verify that dense ..."
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:10:51.851240",
+      "file_path": "/media/sam/1TB/UTXOracle/live/frontend/mempool-viz.js"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:20:48.619186",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/integration/test_frontend.py"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:20:56.825254",
+      "command": "wc -l /media/sam/1TB/UTXOracle/tests/integration/test_frontend.py",
+      "description": "Count lines in test file"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:21:04.752667",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/integration/test_frontend.py"
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-22T16:21:45.240243",
+      "file_path": "/media/sam/1TB/UTXOracle/tests/integration/test_frontend.py",
+      "old_string": "    # Check that tooltip uses scaleXMempool (not old scaleX)\n    # Should be 'this.scaleXMempool(' i..."
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:21:56.593159",
+      "command": "uv run pytest tests/integration/test_frontend.py::test_baseline_uses_real_transaction_data -xvs 2>&1 | tail -20",
+      "description": "Run test (should FAIL - RED phase)"
+    },
+    {
+      "operation": "edit",
+      "timestamp": "2025-10-22T16:22:32.538127",
+      "file_path": "/media/sam/1TB/UTXOracle/live/frontend/mempool-viz.js",
+      "old_string": "    // T109: Draw baseline points (cyan) on left panel\n    drawBaselinePoints() {\n        if (!this...."
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:22:41.657970",
+      "command": "uv run pytest tests/integration/test_frontend.py::test_baseline_uses_real_transaction_data -xvs 2>&1 | tail -5",
+      "description": "Verify test passes (GREEN phase)"
+    },
+    {
+      "operation": "mcp__playwright__browser_navigate",
+      "timestamp": "2025-10-22T16:23:11.881072",
+      "url": "http://localhost:8000"
+    },
+    {
+      "operation": "mcp__playwright__browser_console_messages",
+      "timestamp": "2025-10-22T16:23:16.423535"
+    },
+    {
+      "operation": "mcp__playwright__browser_take_screenshot",
+      "timestamp": "2025-10-22T16:23:17.613970",
+      "filename": "frontend_final_verification.png",
+      "fullPage": true
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:23:23.181625",
+      "file_path": "/media/sam/1TB/UTXOracle/examples/mempool2.png"
+    },
+    {
+      "operation": "mcp__chrome-devtools__evaluate_script",
+      "timestamp": "2025-10-22T16:23:33.416300",
+      "function": "() => {\n  // Check if visualizer exists and get baseline transaction count\n  if (window.app && windo..."
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:23:41.923391",
+      "command": "sleep 3",
+      "description": "Wait for WebSocket to send baseline data"
+    },
+    {
+      "operation": "mcp__chrome-devtools__evaluate_script",
+      "timestamp": "2025-10-22T16:23:48.990338",
+      "function": "() => {\n  // Check baseline data after waiting\n  if (window.app && window.app.visualizer && window.a..."
+    },
+    {
+      "operation": "mcp__playwright__browser_take_screenshot",
+      "timestamp": "2025-10-22T16:23:50.217685",
+      "filename": "frontend_with_baseline_data.png",
+      "fullPage": true
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:23:56.365736",
+      "command": "ps aux | grep -E \"(uvicorn|python.*api.py)\" | grep -v grep",
+      "description": "Check if backend is running"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:24:01.273472",
+      "file_path": "/media/sam/1TB/UTXOracle/live/backend/api.py"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:24:04.860887",
+      "file_path": "/media/sam/1TB/UTXOracle/live/backend/api.py"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:24:11.186027",
+      "command": "curl -s http://localhost:8000/ws/mempool 2>&1 | head -20",
+      "description": "Check WebSocket endpoint"
+    },
+    {
+      "operation": "mcp__chrome-devtools__list_console_messages",
+      "timestamp": "2025-10-22T16:24:22.773952"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:24:28.651586",
+      "file_path": "/media/sam/1TB/UTXOracle/live/frontend/mempool-viz.js"
+    },
+    {
+      "operation": "mcp__chrome-devtools__evaluate_script",
+      "timestamp": "2025-10-22T16:24:45.910712",
+      "function": "() => {\n  // Try different paths to find the visualizer\n  const paths = [\n    'window.app?.visualize..."
+    },
+    {
+      "operation": "mcp__chrome-devtools__evaluate_script",
+      "timestamp": "2025-10-22T16:24:57.403065",
+      "function": "() => {\n  // Count cyan dots in the left panel (baseline)\n  const canvas = document.querySelector('#..."
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:25:04.743961",
+      "file_path": "/media/sam/1TB/UTXOracle/live/frontend/mempool-viz.js"
+    },
+    {
+      "operation": "grep",
+      "timestamp": "2025-10-22T16:25:11.322272",
+      "pattern": "drawBaseline\\(",
+      "path": "/media/sam/1TB/UTXOracle/live/frontend",
+      "output_mode": "content"
+    },
+    {
+      "operation": "grep",
+      "timestamp": "2025-10-22T16:25:16.853820",
+      "pattern": "baseline\\.transactions",
+      "path": "/media/sam/1TB/UTXOracle/live/frontend",
+      "output_mode": "content"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:25:23.799680",
+      "file_path": "/media/sam/1TB/UTXOracle/live/frontend/mempool-viz.js"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:25:28.517494",
+      "file_path": "/media/sam/1TB/UTXOracle/live/frontend/mempool-viz.js"
+    },
+    {
+      "operation": "read",
+      "timestamp": "2025-10-22T16:25:33.935556",
+      "file_path": "/media/sam/1TB/UTXOracle/live/frontend/mempool-viz.js"
+    },
+    {
+      "operation": "grep",
+      "timestamp": "2025-10-22T16:25:42.636007",
+      "pattern": "updateData\\(",
+      "path": "/media/sam/1TB/UTXOracle/live/frontend",
+      "output_mode": "content"
+    },
+    {
+      "operation": "grep",
+      "timestamp": "2025-10-22T16:25:53.693229",
+      "pattern": "scaleXBaseline",
+      "path": "/media/sam/1TB/UTXOracle/live/frontend",
+      "output_mode": "files_with_matches"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-22T16:26:02.696816",
+      "command": "ls -la /media/sam/1TB/UTXOracle/tests/integration/",
+      "description": "List integration tests"
+    },
+    {
+      "operation": "grep",
+      "timestamp": "2025-10-22T16:26:09.315768",
+      "pattern": "def test.*baseline",
+      "path": "/media/sam/1TB/UTXOracle/tests/integration/test_frontend.py",
+      "output_mode": "content"
     }
   ],
-  "last_updated": "2025-10-22T16:10:14.163370"
+  "last_updated": "2025-10-22T16:26:09.315795"
 }

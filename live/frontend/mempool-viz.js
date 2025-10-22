@@ -544,30 +544,35 @@ class MempoolVisualizer {
             return;
         }
 
-        // For MVP: render baseline as horizontal band of points
-        // TODO: Once backend sends baseline.transactions[], render actual tx points
+        // BUGFIX 2025-10-22: Backend now sends baseline.transactions (10k points)
+        if (this.baseline.transactions && this.baseline.transactions.length > 0) {
+            for (const tx of this.baseline.transactions) {
+                const x = this.scaleX(tx.timestamp);
+                const y = this.scaleY(tx.price);
 
-        const baselineY = this.scaleY(this.baseline.price);
-        const priceRange = this.baseline.price_max - this.baseline.price_min;
+                // Cyan point
+                this.ctx.fillStyle = 'rgba(0, 255, 255, 0.7)';
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, 2, 0, 2 * Math.PI);
+                this.ctx.fill();
+            }
+        } else {
+            // Synthetic fallback (only if no data)
+            const baselineY = this.scaleY(this.baseline.price);
+            const numPoints = 50;
+            const baselineStartX = this.marginLeft;
 
-        // Generate synthetic points along the baseline panel width
-        const numPoints = 50;
-        const baselineStartX = this.marginLeft;
-        const baselineEndX = this.marginLeft + this.baselineWidth;
+            for (let i = 0; i < numPoints; i++) {
+                const x = baselineStartX + (i / numPoints) * this.baselineWidth;
+                const verticalSpread = ((this.baseline.price_max - this.baseline.price_min) / (this.priceMax - this.priceMin)) * this.plotHeight;
+                const yOffset = (Math.random() - 0.5) * verticalSpread;
+                const y = baselineY + yOffset;
 
-        for (let i = 0; i < numPoints; i++) {
-            const x = baselineStartX + (i / numPoints) * this.baselineWidth;
-
-            // Add vertical spread based on price range (visualize confidence band)
-            const verticalSpread = ((this.baseline.price_max - this.baseline.price_min) / (this.priceMax - this.priceMin)) * this.plotHeight;
-            const yOffset = (Math.random() - 0.5) * verticalSpread;
-            const y = baselineY + yOffset;
-
-            // Cyan with slight opacity
-            this.ctx.fillStyle = 'rgba(0, 255, 255, 0.7)';
-            this.ctx.beginPath();
-            this.ctx.arc(x, y, 2, 0, 2 * Math.PI);  // Small points
-            this.ctx.fill();
+                this.ctx.fillStyle = 'rgba(0, 255, 255, 0.7)';
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, 2, 0, 2 * Math.PI);
+                this.ctx.fill();
+            }
         }
     }
 
