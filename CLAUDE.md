@@ -109,6 +109,7 @@ uv.lock                             # Dependency lockfile (commit this!)
 ├── README.md
 ├── TDD_GUARD_VS_AUTOTEST.md
 ├── config.json
+├── settings.local copy.json
 ├── settings.local.json
 ├── agents/                             # 6 specialized subagents
 ├── commands/                           # Custom slash commands (SpecKit)

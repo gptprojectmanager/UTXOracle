@@ -260,10 +260,10 @@ class MempoolVisualizer {
         this.tooltipBorderColor = '#FF8C00';
 
         // T074b: Variable point size
-        // BUGFIX 2025-10-23: Increased maxRadius from 8 to 20 to allow visible size variation
-        // (Most transactions were clamped to 8, making all points look the same)
+        // BUGFIX 2025-10-23: Reduced from 20 to 8 - points were too large
+        // Use smaller multiplier (1.0) in getPointSize for better visual scale
         this.pointMinRadius = 1;
-        this.pointMaxRadius = 20;
+        this.pointMaxRadius = 8;
 
         this.marginLeft = 80;
         this.marginRight = 20;
@@ -383,8 +383,8 @@ class MempoolVisualizer {
         }
 
         // Logarithmic scale for better visual distribution
-        // Adjust the multiplier (e.g., 1.5) to control the size range
-        const size = Math.log(tx.btc_amount * 1e8) * 1.5;
+        // BUGFIX 2025-10-23: Reduced multiplier from 1.5 to 0.8 for smaller points
+        const size = Math.log(tx.btc_amount * 1e8) * 0.8;
 
         return Math.max(this.pointMinRadius, Math.min(this.pointMaxRadius, size));
     }
@@ -585,9 +585,9 @@ class MempoolVisualizer {
         if (this.baseline.transactions && this.baseline.transactions.length > 0) {
             for (const tx of this.baseline.transactions) {
                 const baseX = this.scaleXBaseline(tx.timestamp);
-                // BUGFIX 2025-10-23: Add horizontal jitter to prevent vertical stripes
-                // (many transactions share same timestamp from same block)
-                const jitter = (Math.random() - 0.5) * 4; // ±2 pixels
+                // BUGFIX 2025-10-23: Increased jitter from ±2 to ±15 pixels
+                // to fully distribute vertical stripes into uniform cloud
+                const jitter = (Math.random() - 0.5) * 30; // ±15 pixels
                 const x = baseX + jitter;
                 const y = this.scaleY(tx.price);
 

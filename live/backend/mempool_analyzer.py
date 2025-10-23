@@ -235,14 +235,28 @@ class MempoolAnalyzer:
                 return self.baseline.price
             return self.last_price_estimate
 
-        histogram_array = self._histogram_to_array()
-        rough_price = self._estimate_rough_price(histogram_array)
+        # BUGFIX 2025-10-23: Use median of scatter prices instead of histogram rough_price
+        # Histogram is too unstable with few transactions, use scatter point median
+        if len(self.transaction_history) >= 10:
+            # Calculate median of recent scatter prices
+            recent_prices = [tx.price for tx in list(self.transaction_history)[-500:]]
+            median_price = sorted(recent_prices)[len(recent_prices) // 2]
 
-        # BUGFIX 2025-10-23: Don't overwrite baseline price with rough mempool estimate
-        # Only update last_price_estimate if no baseline is set
-        if not (hasattr(self, "baseline") and self.baseline is not None):
-            self.last_price_estimate = rough_price
-        return rough_price
+            # DEBUG: Log estimate
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.debug(
+                f"Mempool estimate: median=${median_price:.0f}, scatter_count={len(self.transaction_history)}"
+            )
+
+            return median_price
+
+        # Fallback to baseline if not enough scatter data
+        if hasattr(self, "baseline") and self.baseline is not None:
+            return self.baseline.price
+
+        return self.last_price_estimate
 
     def _histogram_to_array(self) -> List[float]:
         """Convert sparse histogram to dense array"""
