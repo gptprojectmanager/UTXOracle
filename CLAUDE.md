@@ -145,7 +145,9 @@ archive/                            # Previous versions (v7, v8, v9)
 docs/                               # Documentation
 ├── BASELINE_LIVE_ARCHITECTURE.md
 ├── BASELINE_RENDERING_SUCCESS.md
+├── BUGFIX_REPORT_2025-10-23.md
 ├── CANVAS_IMPLEMENTATION_COMPLETE.md
+├── GEMINI_FIX_ANALYSIS.md
 ├── IMPLEMENTATION_CHECKLIST.md
 ├── MANUAL_TEST_US3_CONFIDENCE_WARNING.md
 ├── PHASE7_COMPLETION_REPORT.md
@@ -169,12 +171,10 @@ docs/                               # Documentation
 examples/                           # Example outputs and screenshots
 ├── README.md
 ├── UTXOracle_Local_Node_Price.png
-├── canvas_t069-t074_verification.png
 ├── mempool.png
 ├── mempool2.png
 ├── mempool3.png
 ├── mempool4.png
-├── mempool_attuale_reference.png
 └── mempuul.png
 historical_data/                    # 672 days of historical outputs
 └── html_files/                         # HTML price analysis files

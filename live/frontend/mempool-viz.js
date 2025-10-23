@@ -303,6 +303,14 @@ class MempoolVisualizer {
         // T107-T109: Store baseline data if provided
         if (baseline) {
             this.baseline = baseline;
+
+            // BUGFIX 2025-10-23: Cache min/max timestamps to avoid recalculating every frame
+            // (Bug #1: Performance issue with 10k points × 30 FPS = 9M ops/sec)
+            if (baseline.transactions && baseline.transactions.length > 0) {
+                const timestamps = baseline.transactions.map(tx => tx.timestamp);
+                this.baselineTimeMin = Math.min(...timestamps);
+                this.baselineTimeMax = Math.max(...timestamps);
+            }
         }
 
         if (!transactions || transactions.length === 0) {
@@ -359,7 +367,15 @@ class MempoolVisualizer {
     // BUGFIX 2025-10-22: TransactionPoint model only has timestamp and price (no btc_amount)
     // Using constant point size until btc_amount is added to model (see VISUALIZATION_BUG_REPORT.md)
     getPointSize(tx) {
-        return 3;  // Constant radius (medium size)
+        if (!tx.btc_amount) {
+            return 2; // Default size if btc_amount is missing
+        }
+
+        // Logarithmic scale for better visual distribution
+        // Adjust the multiplier (e.g., 1.5) to control the size range
+        const size = Math.log(tx.btc_amount * 1e8) * 1.5;
+
+        return Math.max(this.pointMinRadius, Math.min(this.pointMaxRadius, size));
     }
 
     // T074c: Fade-out for old points
@@ -582,10 +598,10 @@ class MempoolVisualizer {
             return this.marginLeft;
         }
 
-        // Find min/max timestamps in baseline transactions
-        const timestamps = this.baseline.transactions.map(tx => tx.timestamp);
-        const minTime = Math.min(...timestamps);
-        const maxTime = Math.max(...timestamps);
+        // BUGFIX 2025-10-23: Use cached min/max timestamps (calculated once in updateData)
+        // Avoids 9M operations/sec (10k points × 30 FPS × 2 array passes)
+        const minTime = this.baselineTimeMin;
+        const maxTime = this.baselineTimeMax;
 
         // Avoid division by zero
         if (maxTime === minTime) {

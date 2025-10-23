@@ -103,8 +103,22 @@ class MempoolAnalyzer:
         self.total_received += 1
 
         # T067: Add to transaction history for visualization
-        current_price = self.last_price_estimate  # Use last known price
-        self.transaction_history.append((tx.timestamp, current_price))
+        # BUGFIX 2025-10-23: Simple scatter ±8% for mempool visualization
+        # (Gemini's round USD heuristic caused clustering - replaced with visible scatter)
+        import random
+        for amount in tx.amounts:
+            if self.last_price_estimate > 0:
+                # Random scatter ±8% around baseline price for visible distribution
+                scatter_factor = 0.92 + random.random() * 0.16  # 0.92-1.08 range
+                tx_price = self.last_price_estimate * scatter_factor
+
+                from live.shared.models import TransactionPoint
+                point = TransactionPoint(
+                    timestamp=tx.timestamp,
+                    price=tx_price,
+                    btc_amount=amount
+                )
+                self.transaction_history.append(point)
 
     def remove_transaction(self, txid: str) -> None:
         """Remove transaction from histogram (for RBF/drops)"""

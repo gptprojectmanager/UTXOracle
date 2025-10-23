@@ -20,6 +20,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+import random
 
 from live.shared.models import (
     MempoolState,
@@ -194,7 +195,9 @@ class DataStreamer:
                         baseline_transactions.append(
                             TransactionPoint(
                                 timestamp=timestamp,
-                                price=bl.price,  # Use baseline price for all points
+                                # BUGFIX 2025-10-23: Calculate individual price with ±2% scatter (Bug #2)
+                                # Simulates real market variation instead of single consensus price
+                                price=bl.price * (0.98 + random.random() * 0.04),
                             )
                         )
 

@@ -4,8 +4,8 @@
   "hook_event_name": "PreToolUse",
   "tool_name": "Edit",
   "tool_input": {
-    "file_path": "/media/sam/1TB/UTXOracle/live/frontend/mempool-viz.js",
-    "old_string": "    updateData(transactions, baseline = null) {\n        // T107-T109: Store baseline data if provided\n        if (baseline) {\n            this.baseline = baseline;\n        }\n\n        if (!transactions || transactions.length === 0) {\n            return;\n        }",
-    "new_string": "    updateData(transactions, baseline = null) {\n        // T107-T109: Store baseline data if provided\n        if (baseline) {\n            this.baseline = baseline;\n\n            // BUGFIX 2025-10-23: Cache min/max timestamps for baseline scaling (Fix #1)\n            // Prevents recalculation on every render (was causing jitter + 9M array ops/sec)\n            if (baseline.transactions && baseline.transactions.length > 0) {\n                const timestamps = baseline.transactions.map(tx => tx.timestamp);\n                this.baselineTimeMin = Math.min(...timestamps);\n                this.baselineTimeMax = Math.max(...timestamps);\n            }\n        }\n\n        if (!transactions || transactions.length === 0) {\n            return;\n        }"
+    "file_path": "/media/sam/1TB/UTXOracle/live/backend/api.py",
+    "old_string": "        # T068: Get transaction history from analyzer if available\n        # T106: Get baseline data from analyzer if available\n        if hasattr(self, \"analyzer\") and self.analyzer:\n            history = self.analyzer.get_transaction_history()\n            transactions = [\n                TransactionPoint(timestamp=ts, price=price) for ts, price in history\n            ]",
+    "new_string": "        # T068: Get transaction history from analyzer if available\n        # T106: Get baseline data from analyzer if available\n        if hasattr(self, \"analyzer\") and self.analyzer:\n            history = self.analyzer.get_transaction_history()\n            # History contains TransactionPoint objects, not tuples - use directly\n            transactions = list(history)"
   }
 }

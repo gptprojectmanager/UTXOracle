@@ -231,6 +231,7 @@ class TransactionPoint(BaseModel):
     price: float = Field(
         ..., gt=0, description="Estimated price for this transaction (USD)"
     )
+    btc_amount: float = Field(..., gt=0, description="Transaction value in BTC")
 
 
 class SystemStats(BaseModel):
