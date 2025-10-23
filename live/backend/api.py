@@ -144,15 +144,15 @@ class DataStreamer:
 
         if not self.active_clients:
             logger.debug(
-                f"Broadcast skipped: No active clients (state: {state.active_tx_count} active)"
+                f"Broadcast skipped: No active clients connected (clients={len(self.active_clients)}, txs={state.active_tx_count})"
             )
             return
 
         message = self._create_websocket_message(state)
         message_json = message.model_dump_json()
 
-        logger.debug(
-            f"Broadcasting to {len(self.active_clients)} clients: active={state.active_tx_count}, price={state.price}"
+        logger.info(
+            f"Broadcasting to {len(self.active_clients)} client(s): price=${state.price:,.0f}, confidence={state.confidence:.2f}, txs={state.active_tx_count}"
         )
 
         disconnected_clients = []
@@ -178,7 +178,8 @@ class DataStreamer:
         if hasattr(self, "analyzer") and self.analyzer:
             history = self.analyzer.get_transaction_history()
             transactions = [
-                point for point in history  # history already contains TransactionPoint objects
+                point
+                for point in history  # history already contains TransactionPoint objects
             ]
 
             # T106: Get combined history (baseline + mempool)
@@ -265,16 +266,29 @@ async def health_check():
 @app.websocket("/ws/mempool")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time mempool updates"""
+    client_host = websocket.client.host if websocket.client else "unknown"
+    logger.info(f"WebSocket connection attempt from {client_host}")
+
     await websocket.accept()
+    logger.info(f"WebSocket accepted from {client_host}")
+
     await streamer.register_client(websocket)
+    logger.info(
+        f"Client {client_host} registered. Active clients: {len(streamer.active_clients)}"
+    )
 
     try:
         while True:
-            await websocket.receive_text()
+            # Use receive() instead of receive_text() to handle all message types
+            # including ping/pong frames and avoid disconnecting on non-text messages
+            message = await websocket.receive()
+            # Log any client messages for debugging
+            if message.get("type") == "websocket.disconnect":
+                raise WebSocketDisconnect()
     except WebSocketDisconnect:
         streamer.unregister_client(websocket)
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+        logger.error(f"WebSocket error: {e}", exc_info=True)
         streamer.unregister_client(websocket)
 
 
