@@ -417,31 +417,36 @@ class MempoolVisualizer {
         return Math.max(this.pointMinRadius, Math.min(this.pointMaxRadius, size));
     }
 
-    // Temporal absolute fade-out based on fixed 10-minute window
-    // Consistent with scaleX() absolute timeline positioning
-    // Oldest 40% of window (0-4min old): fade from 0.3 to 1.0
-    // Newest 60% of window (4-10min old): full opacity 1.0
+    // Spatial relative fade-out based on actual data timestamps
+    // Adapts to present data distribution (works well with sparse data)
     getPointOpacity(timestamp) {
-        const now = Date.now() / 1000;
-        const age = now - timestamp; // Age in seconds
-
-        // Full window is timeWindowSeconds (600s = 10min)
-        // Fade the oldest 40% (0-240s) from 0.3 to 1.0
-        const fadeEndAge = this.timeWindowSeconds * 0.4; // 240s = 4min
-
-        if (age <= fadeEndAge) {
-            // Newest 60% (0-4min old): full opacity
+        if (this.transactions.length === 0) {
             return 1.0;
         }
 
-        if (age >= this.timeWindowSeconds) {
-            // Beyond window (should be filtered): minimum opacity
-            return 0.3;
+        // Find min/max timestamps in current window
+        const timestamps = this.transactions.map(tx => tx.timestamp);
+        const minTimestamp = Math.min(...timestamps);
+        const maxTimestamp = Math.max(...timestamps);
+
+        if (maxTimestamp === minTimestamp) {
+            return 1.0; // All same timestamp
         }
 
-        // Oldest 40% (4-10min old): linear fade from 1.0 to 0.3
-        const fadeProgress = (age - fadeEndAge) / (this.timeWindowSeconds - fadeEndAge);
-        return 1.0 - (fadeProgress * 0.7); // 1.0 -> 0.3
+        // Calculate position in time range [0=oldest/left, 1=newest/right]
+        const normalizedPosition = (timestamp - minTimestamp) / (maxTimestamp - minTimestamp);
+
+        // Fade out left 40% of timeline from 0.3 to 1.0
+        const fadeEndPosition = 0.4;
+
+        if (normalizedPosition >= fadeEndPosition) {
+            // Right 60%: full opacity
+            return 1.0;
+        }
+
+        // Left 40%: linear fade from 0.3 to 1.0
+        const fadeProgress = normalizedPosition / fadeEndPosition;
+        return 0.3 + (fadeProgress * 0.7); // 0.3 -> 1.0
     }
 
     startRendering() {
