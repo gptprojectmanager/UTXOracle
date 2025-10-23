@@ -2630,7 +2630,34 @@
       "timestamp": "2025-10-23T16:58:18.866348",
       "filename": "baseline_fixed.png",
       "type": "png"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-23T16:58:38.457847",
+      "command": "git add -A && git diff --cached --stat",
+      "description": "Check what will be committed"
+    },
+    {
+      "operation": "bash",
+      "timestamp": "2025-10-23T16:59:01.206601",
+      "command": "git commit -m \"$(cat <<'EOF'\nfix: Rollback Gemini's corrupted changes and fix baseline rendering\n\nCRITICAL FIX: Gemini broke the server by corrupting api.py with duplicate\nclasses and invalid Python syntax. Also changed frontend data flow incorrectly.\n\nChanges:\n1. Rollback api.py to commit 394caf0 (removed duplicate classes/imports)\n2. Rollback models.py to commit 394caf0 (restored WebSocketMessage)\n3. Rollback orchestrator.py to commit 394caf0 (removed broadcast_mempool_update call)\n4. Fix mempool-viz.js handleMempoolUpdate() - was passing object instead of array\n\nRoot cause: Gemini attempted dual-message architecture but corrupted files:\n- api.py: IndentationError, duplicate ConnectionManager classes\n- models.py: Removed WebSocketMessage, broke imports\n- orchestrator.py: Called non-existent broadcast_mempool_update()\n- mempool-viz.js: Changed updateData() signature incompatibly\n\nResult: Server now starts correctly, baseline rendering works (10k intraday\npoints uniformly sampled), no console errors.\n\nRemaining issue: Baseline points still appear as vertical stripe instead of\nhorizontally distributed over 24h (will debug separately).\n\nVerified: Uniform sampling active, jitter cache working, no movement.\n\n🤖 Generated with Claude Code\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\"",
+      "description": "Commit rollback and fixes"
+    },
+    {
+      "operation": "mcp__playwright__browser_evaluate",
+      "timestamp": "2025-10-23T16:59:17.680119",
+      "function": "() => {\n    const app = window.app;\n    if (!app || !app.visualizer) return \"No visualizer found\";\n ..."
+    },
+    {
+      "operation": "mcp__playwright__browser_evaluate",
+      "timestamp": "2025-10-23T16:59:39.045183",
+      "function": "() => {\n    const app = window.app;\n    if (!app || !app.visualizer) return \"No app\";\n    \n    const..."
+    },
+    {
+      "operation": "todowrite",
+      "timestamp": "2025-10-23T17:00:21.960034",
+      "todo_count": 6
     }
   ],
-  "last_updated": "2025-10-23T16:58:18.866366"
+  "last_updated": "2025-10-23T17:00:21.960058"
 }
