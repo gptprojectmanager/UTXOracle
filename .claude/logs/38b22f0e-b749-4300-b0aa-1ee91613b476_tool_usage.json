@@ -1,23 +1,5 @@
 [
   {
-    "timestamp": "2025-10-23T14:28:51.074925",
-    "tool_name": "Bash",
-    "session_id": "38b22f0e-b749-4300-b0aa-1ee91613b476",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-23T14:29:04.601820",
-    "tool_name": "Bash",
-    "session_id": "38b22f0e-b749-4300-b0aa-1ee91613b476",
-    "success": true
-  },
-  {
-    "timestamp": "2025-10-23T14:29:12.803603",
-    "tool_name": "Bash",
-    "session_id": "38b22f0e-b749-4300-b0aa-1ee91613b476",
-    "success": true
-  },
-  {
     "timestamp": "2025-10-23T14:29:19.322654",
     "tool_name": "Bash",
     "session_id": "38b22f0e-b749-4300-b0aa-1ee91613b476",
@@ -595,6 +577,24 @@
   },
   {
     "timestamp": "2025-10-23T15:35:38.046855",
+    "tool_name": "Bash",
+    "session_id": "38b22f0e-b749-4300-b0aa-1ee91613b476",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-23T15:35:58.162598",
+    "tool_name": "Task",
+    "session_id": "38b22f0e-b749-4300-b0aa-1ee91613b476",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-23T15:36:02.092679",
+    "tool_name": "Write",
+    "session_id": "38b22f0e-b749-4300-b0aa-1ee91613b476",
+    "success": true
+  },
+  {
+    "timestamp": "2025-10-23T15:36:13.063420",
     "tool_name": "Bash",
     "session_id": "38b22f0e-b749-4300-b0aa-1ee91613b476",
     "success": true
