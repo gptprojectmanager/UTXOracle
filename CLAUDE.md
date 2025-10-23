@@ -181,7 +181,8 @@ examples/                           # Example outputs and screenshots
 ├── mempool3.png
 ├── mempool4.png
 ├── mempool_attuale.png
-└── mempuul.png
+├── mempuul.png
+└── visual_errata.png
 historical_data/                    # 672 days of historical outputs
 └── html_files/                         # HTML price analysis files
 │   │   └── [672 HTML files]
