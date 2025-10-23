@@ -216,7 +216,7 @@ class UIController {
 
         this.statReceivedElement.textContent = stats.total_received || 0;
         this.statFilteredElement.textContent = stats.total_filtered || 0;
-        this.statActiveElement.textContent = stats.active_tx_count || 0;
+        this.statActiveElement.textContent = stats.active_in_window || 0;
 
         const uptime = stats.uptime_seconds || 0;
         this.statUptimeElement.textContent = this.formatUptime(uptime);
@@ -326,14 +326,19 @@ class MempoolVisualizer {
         }
 
         // T074a: Filter transactions outside time window
-        // BUGFIX 2025-10-23: Use max timestamp from received data, not browser time
-        // This ensures we keep 10 minutes of data RELATIVE to received data,
-        // not relative to browser clock (which would discard initial sync data)
+        // BUGFIX 2025-10-23: Hybrid approach for initial sync + live updates
+        // - Use maxTimestamp if data is recent (< 30s old) - preserves initial sync
+        // - Use Date.now() if data is old (> 30s) - enables live scrolling
+        const now = Date.now() / 1000;
         const timestamps = transactions.map(tx => tx.timestamp);
         const maxTimestamp = Math.max(...timestamps);
+        const dataAge = now - maxTimestamp;
+
+        // Use maxTimestamp only if data is fresh (< 30 seconds old)
+        const referenceTime = (dataAge < 30) ? maxTimestamp : now;
 
         this.transactions = transactions.filter(tx =>
-            tx.timestamp >= (maxTimestamp - this.timeWindowSeconds)
+            tx.timestamp >= (referenceTime - this.timeWindowSeconds)
         );
 
 
@@ -726,25 +731,13 @@ class MempoolVisualizer {
 
 
     // T109: Scale X for mempool panel (right side)
-    // BUGFIX 2025-10-23: Use max timestamp from data, not browser time
-    // to align with updateData() filtering logic
+    // BUGFIX 2025-10-23: Use Date.now() for scaling (live scrolling)
+    // but filtering in updateData() uses maxTimestamp (preserves initial sync)
     scaleXMempool(timestamp) {
-        // Use max timestamp from current data for alignment
-        if (this.transactions.length === 0) {
-            // Fallback to browser time if no data
-            const now = Date.now() / 1000;
-            const timeMin = now - this.timeWindowSeconds;
-            const timeMax = now;
-            const normalized = (timestamp - timeMin) / (timeMax - timeMin);
-            const mempoolStartX = this.marginLeft + this.baselineWidth;
-            return mempoolStartX + (normalized * this.mempoolWidth);
-        }
-
-        // Use max timestamp from actual data (aligns with filtering)
-        const timestamps = this.transactions.map(tx => tx.timestamp);
-        const maxTimestamp = Math.max(...timestamps);
-        const timeMin = maxTimestamp - this.timeWindowSeconds;
-        const timeMax = maxTimestamp;
+        // Always use current browser time for X-axis scaling (scrolling timeline)
+        const now = Date.now() / 1000;
+        const timeMin = now - this.timeWindowSeconds;
+        const timeMax = now;
 
         const normalized = (timestamp - timeMin) / (timeMax - timeMin);
 
