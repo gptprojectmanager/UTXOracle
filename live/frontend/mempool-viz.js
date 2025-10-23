@@ -326,9 +326,14 @@ class MempoolVisualizer {
         }
 
         // T074a: Filter transactions outside time window
-        const now = Date.now() / 1000;
+        // BUGFIX 2025-10-23: Use max timestamp from received data, not browser time
+        // This ensures we keep 10 minutes of data RELATIVE to received data,
+        // not relative to browser clock (which would discard initial sync data)
+        const timestamps = transactions.map(tx => tx.timestamp);
+        const maxTimestamp = Math.max(...timestamps);
+
         this.transactions = transactions.filter(tx =>
-            tx.timestamp >= (now - this.timeWindowSeconds)
+            tx.timestamp >= (maxTimestamp - this.timeWindowSeconds)
         );
 
 
@@ -721,14 +726,28 @@ class MempoolVisualizer {
 
 
     // T109: Scale X for mempool panel (right side)
+    // BUGFIX 2025-10-23: Use max timestamp from data, not browser time
+    // to align with updateData() filtering logic
     scaleXMempool(timestamp) {
-        const now = Date.now() / 1000;
-        const timeMin = now - this.timeWindowSeconds;
-        const timeMax = now;
+        // Use max timestamp from current data for alignment
+        if (this.transactions.length === 0) {
+            // Fallback to browser time if no data
+            const now = Date.now() / 1000;
+            const timeMin = now - this.timeWindowSeconds;
+            const timeMax = now;
+            const normalized = (timestamp - timeMin) / (timeMax - timeMin);
+            const mempoolStartX = this.marginLeft + this.baselineWidth;
+            return mempoolStartX + (normalized * this.mempoolWidth);
+        }
+
+        // Use max timestamp from actual data (aligns with filtering)
+        const timestamps = this.transactions.map(tx => tx.timestamp);
+        const maxTimestamp = Math.max(...timestamps);
+        const timeMin = maxTimestamp - this.timeWindowSeconds;
+        const timeMax = maxTimestamp;
 
         const normalized = (timestamp - timeMin) / (timeMax - timeMin);
 
-        // Map to right panel (mempool side)
         const mempoolStartX = this.marginLeft + this.baselineWidth;
         return mempoolStartX + (normalized * this.mempoolWidth);
     }
