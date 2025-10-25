@@ -198,7 +198,6 @@ The `/live/` directory (from spec 002) contains **1,222 lines of code duplicatin
 - ✅ electrs query response: <100ms on NVMe
 - ✅ DuckDB analytics queries: <50ms
 - ✅ Daily analysis execution: <5 minutes per run
-- ✅ API endpoint response: <50ms (cached)
 
 ### Deployment Requirements
 

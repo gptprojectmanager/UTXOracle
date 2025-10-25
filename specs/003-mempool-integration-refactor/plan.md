@@ -56,15 +56,9 @@
 │                    LAYER 3: STORAGE                           │
 │   DuckDB (file: utxoracle_cache.db on NVMe)                  │
 │   ┌──────────────────────────────────────────────────┐      │
-│   │  prices(                                         │      │
-│   │    timestamp TIMESTAMP PRIMARY KEY,              │      │
-│   │    utxoracle_price DECIMAL(12,2),  -- On-chain  │      │
-│   │    mempool_price DECIMAL(12,2),    -- Exchange  │      │
-│   │    confidence DECIMAL(5,4),                      │      │
-│   │    tx_count INT,                                 │      │
-│   │    diff_amount DECIMAL(12,2),                    │      │
-│   │    diff_percent DECIMAL(6,2)                     │      │
-│   │  )                                               │      │
+│   │  prices table: See tasks.md T048 for schema      │      │
+│   │  (timestamp, utxoracle_price, mempool_price,     │      │
+│   │   confidence, tx_count, diff_*, is_valid)        │      │
 │   └──────────────────────────────────────────────────┘      │
 └──────────────────────────────────────────────────────────────┘
                              │

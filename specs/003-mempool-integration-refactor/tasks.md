@@ -20,6 +20,23 @@
 
 ---
 
+## Phase 0: Pre-Setup & Git Hooks 🔧
+
+**Purpose**: Configure development environment and pre-commit safety checks
+
+**Time Estimate**: 30 minutes
+
+- [ ] T000 [Setup] Create `.git/hooks/pre-commit` script with cleanup checks:
+  - Remove temporary files (`.tmp`, `.bak`, `~`, `.swp`)
+  - Clean Python cache (`find . -type d -name __pycache__ -exec rm -rf {} +`)
+  - Check for debug code (`git diff --cached | grep -E "(print\(|console\.log|debugger)"`)
+  - Warn if >20 files changed
+  - Make executable: `chmod +x .git/hooks/pre-commit`
+
+**Checkpoint**: Pre-commit hook prevents accidental commits of debug code and temp files
+
+---
+
 ## Phase 1: Infrastructure Setup 🏗️
 
 **Purpose**: Deploy self-hosted mempool.space + electrs stack on NVMe
@@ -67,6 +84,12 @@
 - [ ] T023 [Refactor] Implement `_build_smooth_stencil()` method (copy from UTXOracle.py Step 8)
 - [ ] T024 [Refactor] Implement `_build_spike_stencil()` method (copy from UTXOracle.py Step 8)
 - [ ] T025 [Refactor] Implement `_estimate_price(histogram)` method (copy from UTXOracle.py Steps 9-11)
+- [ ] T025a [Refactor] Implement Bitcoin RPC retry logic in `UTXOracle_library.py`:
+  - Wrap RPC calls in retry decorator (2 attempts, 10s delay)
+  - On final failure, check for cached data (<1 hour old)
+  - If cached data exists, log WARNING and return cached price
+  - If no cache, raise exception with clear error message
+  - Example: `@retry(tries=2, delay=10, fallback=get_cached_data)`
 - [ ] T026 [Refactor] Implement `calculate_price_for_transactions(txs)` public method (orchestrates all steps)
 - [ ] T027 [Refactor] Add type hints to all methods (Python 3.8+ style)
 - [ ] T028 [Refactor] Add docstrings to all public methods (Google style)
@@ -98,14 +121,54 @@
 
 ### Implementation
 
-- [ ] T038 [Integration] Create `scripts/daily_analysis.py` with main() skeleton
+- [ ] T038 [Integration] Create `scripts/daily_analysis.py` with main() skeleton:
+  - Import `dotenv` library: `from dotenv import load_dotenv`
+  - Load `.env` file at script start: `load_dotenv()`
+  - Read config from environment variables (see spec.md Configuration Management section)
+  - Set defaults for optional vars (LOG_LEVEL=INFO, ANALYSIS_INTERVAL_MINUTES=10)
 - [ ] T039 [Integration] Implement `fetch_mempool_price()` function (GET http://localhost:8999/api/v1/prices)
 - [ ] T040 [Integration] Implement `calculate_utxoracle_price()` function (uses UTXOracleCalculator library)
 - [ ] T041 [Integration] Implement `compare_prices(utx_price, mem_price)` function (computes diff_amount, diff_percent)
-- [ ] T042 [Integration] Implement `init_database(db_file)` function (creates DuckDB schema if not exists)
-- [ ] T043 [Integration] Implement `save_to_duckdb(data, db_file)` function (INSERT INTO prices)
+- [ ] T042 [Integration] Implement `init_database(db_file)` function (creates DuckDB schema if not exists):
+  ```sql
+  CREATE TABLE IF NOT EXISTS prices (
+      timestamp TIMESTAMP PRIMARY KEY,
+      utxoracle_price DECIMAL(12, 2),
+      mempool_price DECIMAL(12, 2),
+      confidence DECIMAL(5, 4),
+      tx_count INTEGER,
+      diff_amount DECIMAL(12, 2),
+      diff_percent DECIMAL(6, 2),
+      is_valid BOOLEAN DEFAULT TRUE  -- NEW: Flag for low confidence/invalid prices
+  )
+  ```
+- [ ] T042a [Integration] Implement price validation in `daily_analysis.py`:
+  - Check confidence score ≥ 0.3 (from UTXORACLE_CONFIDENCE_THRESHOLD env var)
+  - Check price in range [$10k, $500k] (from MIN/MAX_PRICE_USD env vars)
+  - If validation fails: set `is_valid=FALSE`, log WARNING, continue (don't abort)
+  - Include validation failure details in log (confidence, price, tx_count)
+- [ ] T043 [Integration] Implement `save_to_duckdb(data, db_file)` function (INSERT INTO prices):
+  - Attempt primary write to `db_file` (from DUCKDB_PATH env var)
+  - If write fails (disk full, permission denied):
+    - Attempt fallback write to `/tmp/utxoracle_backup.duckdb` (from DUCKDB_BACKUP_PATH env var or hardcoded)
+    - Log CRITICAL error with exception traceback
+    - If fallback succeeds: log location, send notification (see T044a)
+    - If fallback fails: raise exception, exit code 2
+  - Do NOT continue execution after fallback (prevent data inconsistency)
 - [ ] T044 [Integration] Add error handling: retry 3× with exponential backoff for network errors
+- [ ] T044a [P] [Integration] Implement webhook notification system in `daily_analysis.py`:
+  - Read ALERT_WEBHOOK_URL from environment (optional, default: None)
+  - On critical errors (mempool API unreachable after 3 retries, DuckDB write failure):
+    - POST JSON payload to webhook: `{"level": "ERROR", "component": "daily_analysis", "message": "...", "timestamp": "..."}`
+    - Use `requests.post(ALERT_WEBHOOK_URL, json=payload, timeout=5)` with exception handling
+    - If webhook fails, log WARNING but don't abort (notification is best-effort)
+  - Document in README.md: "Configure n8n workflow to receive alerts at ALERT_WEBHOOK_URL"
 - [ ] T045 [Integration] Add logging: structured logs to `/media/sam/2TB-NVMe/prod/apps/utxoracle/logs/daily_analysis.log`
+  - Use `structlog` library for JSON structured logging (production) or human-readable (development)
+  - Log which config source was loaded at startup: "Config loaded from .env file at /path/to/.env"
+  - Log all critical events: mempool API calls, Bitcoin RPC calls, DuckDB writes, validation failures
+  - Include context in all log messages: `logger.info("price_calculated", price_usd=67234, confidence=0.87, tx_count=1423)`
+  - Set log level from LOG_LEVEL env var (default: INFO)
 - [ ] T046 [Integration] Add CLI flags: `--init-db`, `--dry-run`, `--verbose`
 - [ ] T047 [Integration] Verify T034-T037 tests now PASS (GREEN)
 
@@ -120,7 +183,8 @@
       confidence DECIMAL(5, 4),
       tx_count INTEGER,
       diff_amount DECIMAL(12, 2),
-      diff_percent DECIMAL(6, 2)
+      diff_percent DECIMAL(6, 2),
+      is_valid BOOLEAN DEFAULT TRUE  -- Flag for low confidence/out-of-range prices
   )
   ```
 - [ ] T049 [Integration] Test manual run: `python3 scripts/daily_analysis.py --init-db --verbose`
@@ -160,7 +224,19 @@
 - [ ] T061 [API] Implement `GET /api/prices/historical?days=7` endpoint (queries DuckDB with date filter)
 - [ ] T062 [API] Implement `GET /api/prices/comparison` endpoint (computes avg_diff, max_diff, min_diff, correlation)
 - [ ] T063 [API] Add health check endpoint: `GET /health` (returns uptime, DuckDB status)
-- [ ] T064 [API] Add environment variable support: `UTXORACLE_DATA_DIR` for DuckDB path
+- [ ] T064 [API] Implement environment variable loading in `api/main.py`:
+  - Load environment variables from `.env` file (if exists) using `python-dotenv`
+  - Required vars: UTXORACLE_DATA_DIR (or default to './data')
+  - Optional vars: FASTAPI_HOST (default: 0.0.0.0), FASTAPI_PORT (default: 8000), LOG_LEVEL (default: INFO)
+  - On startup: Log loaded config source (env vars, .env file, or defaults)
+  - Example: `logger.info("Config loaded", source="environment", duckdb_path=DUCKDB_PATH)`
+- [ ] T064a [API] Implement config validation on startup in `api/main.py` and `scripts/daily_analysis.py`:
+  - Check required variables exist: BITCOIN_RPC_URL (or BITCOIN_DATADIR for cookie auth), DUCKDB_PATH
+  - If critical var missing: Raise `EnvironmentError` with helpful message
+    - Example: `raise EnvironmentError("DUCKDB_PATH not set. Export env var or create .env file.")`
+  - Fail fast (exit code 1) before any processing begins
+  - Log which config file/source was loaded: `logger.info("Config loaded from .env file at /path/to/.env")`
+  - Print config summary at startup (with sensitive values redacted): `logger.info("Config", duckdb_path=DUCKDB_PATH, bitcoin_rpc="<redacted>")`
 - [ ] T065 [API] Verify T055-T057 tests now PASS (GREEN)
 
 ### Systemd Service
