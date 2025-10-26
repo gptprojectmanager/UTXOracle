@@ -1,6 +1,20 @@
 {
   "tdd": {
     "enabled": false,
+    "ignorePatterns": [
+      "*.md",
+      "*.json",
+      "*.yml",
+      "*.yaml",
+      "*.txt",
+      "*.log",
+      "tests/**",
+      "docs/**",
+      "specs/**",
+      ".claude/**",
+      ".env*",
+      "**/*.config.*"
+    ],
     "autoGenerateTests": false,
     "coverageThreshold": 80,
     "phases": {

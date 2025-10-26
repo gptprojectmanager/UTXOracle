@@ -20,9 +20,15 @@ mkdir -p "$PROD_DIR/mempool-stack/data/"{electrs,mysql,cache}
 echo "✅ Directories created"
 echo
 
+# Step 1.5: Detect host IP address
+echo "🔍 Detecting host IP address..."
+HOST_IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v 127.0.0.1 | head -1)
+echo "✅ Host IP detected: $HOST_IP"
+echo
+
 # Step 2: Create unified docker-compose.yml with TESTED configuration
 echo "📝 Creating unified docker-compose.yml..."
-cat > "$PROD_DIR/mempool-stack/docker-compose.yml" << 'EOF'
+cat > "$PROD_DIR/mempool-stack/docker-compose.yml" << EOF
 networks:
   mempool-network:
     driver: bridge
@@ -55,9 +61,11 @@ services:
       - --network
       - mainnet
       - --electrum-rpc-addr
-      - 0.0.0.0:50001
+      - 127.0.0.1:50001
+      - --http-addr
+      - 127.0.0.1:3001
       - --monitoring-addr
-      - 0.0.0.0:4224
+      - 127.0.0.1:4224
       - --address-search
       - --index-unspendables
     healthcheck:
@@ -101,19 +109,18 @@ services:
       # NVMe storage for cache
       - /media/sam/2TB-NVMe/prod/apps/mempool-stack/data/cache:/backend/cache
     environment:
-      # Backend mode
-      MEMPOOL_BACKEND: "electrum"
+      # Backend mode - using esplora (HTTP REST API) instead of electrum (RPC protocol)
+      MEMPOOL_BACKEND: "esplora"
 
-      # Bitcoin Core RPC (use host network to reach 127.0.0.1)
-      CORE_RPC_HOST: "host.docker.internal"
+      # Bitcoin Core RPC (direct host IP since electrs uses host network)
+      CORE_RPC_HOST: "$HOST_IP"
       CORE_RPC_PORT: "8332"
       CORE_RPC_USERNAME: "bitcoinrpc"
       CORE_RPC_PASSWORD: "$$(openssl rand -hex 32)"  # Literal string from bitcoin.conf
 
-      # electrs connection (host network mode)
-      ELECTRUM_HOST: "host.docker.internal"
-      ELECTRUM_PORT: "50001"
-      ELECTRUM_TLS_ENABLED: "false"
+      # electrs connection via esplora REST API (direct host IP since electrs uses host network mode)
+      # Port 3001 instead of 3000 to avoid conflict with Grafana
+      ESPLORA_REST_API_URL: "http://$HOST_IP:3001"
 
       # Database
       DATABASE_ENABLED: "true"
@@ -221,7 +228,7 @@ echo "   docker compose ps"
 echo
 echo "4. Verify APIs:"
 echo "   curl http://localhost:8080          # Frontend"
-echo "   curl http://localhost:50001         # electrs (may timeout until sync complete)"
+echo "   curl http://localhost:3001          # electrs HTTP API (port 3001 to avoid Grafana conflict)"
 echo "   curl http://localhost:8999/api/blocks/tip/height  # Backend API"
 echo
 echo "5. Access mempool.space UI:"
@@ -233,6 +240,8 @@ echo "📊 Monitor disk: watch -n 5 'du -sh $PROD_DIR/mempool-stack/data/electrs
 echo
 echo "🔧 Configuration Notes:"
 echo "   - electrs uses network_mode: host to access Bitcoin Core on 127.0.0.1"
-echo "   - API connects to electrs via host.docker.internal:50001"
+echo "   - API connects to electrs via esplora REST API at http://$HOST_IP:3001"
+echo "   - Port 3001 used instead of 3000 to avoid Grafana conflict"
+echo "   - Backend mode: esplora (HTTP REST) instead of electrum (JSON-RPC)"
 echo "   - Verbose logging enabled (-vvv) for troubleshooting"
 echo

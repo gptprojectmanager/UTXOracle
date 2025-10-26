@@ -202,6 +202,92 @@ rpcallowip=172.17.0.0/16
 
 ---
 
+### Problem 7: Port 3000 Conflict with Grafana
+
+**Error**: electrs HTTP API won't start on port 3000
+
+**Cause**: Grafana (or other service) already using port 3000
+```bash
+$ sudo lsof -i :3000
+grafana   1862    grafana   20u  IPv6   30875      0t0  TCP *:3000 (LISTEN)
+```
+
+**Why HTTP API is important**:
+- mempool.space backend can use either:
+  - **Electrum RPC** (JSON-RPC protocol on port 50001) - for Electrum wallets
+  - **Esplora REST API** (HTTP on port 3000) - for block explorer
+- mempool/electrs fork includes both, but HTTP REST API is preferred for mempool.space
+
+**Solution**: Use port 3001 instead
+```yaml
+electrs:
+  command:
+    - --http-addr
+    - 127.0.0.1:3001  # Instead of default 127.0.0.1:3000
+
+api:
+  environment:
+    MEMPOOL_BACKEND: "esplora"
+    ESPLORA_REST_API_URL: "http://192.168.1.111:3001"
+```
+
+**Lesson**: Always check port availability before assigning services.
+
+---
+
+### Problem 8: Database Inconsistency After Multiple Container Recreations ⚠️ CRITICAL
+
+**Error**: electrs stuck in loop showing "Adding 0 blocks" repeatedly
+
+**Cause**: Multiple container recreations during troubleshooting left database in inconsistent state
+```
+✅ txstore: 404,026 blocks added (partial data from previous sync)
+❌ history: 0 blocks indexed (empty)
+🔄 electrs: Tries to add blocks but database says "already done" → Adding 0 blocks
+```
+
+**RocksDB Database Structure**:
+- `txstore/`: Transaction data (404,026 blocks present = 44% complete)
+- `history/`: Address index (0 blocks = 0% complete)
+- `cache/`: Cached queries
+
+**Why it happens**:
+1. First sync: electrs starts indexing transactions (Phase 1)
+2. Container recreated during sync (for configuration fixes)
+3. Database has partial Phase 1 data
+4. electrs restarts, sees partial data, gets confused
+5. Cannot proceed to Phase 2 (indexing addresses)
+
+**Solution**: Reset database completely
+```bash
+# Stop stack
+docker compose down
+
+# Delete corrupted database
+sudo rm -rf /media/sam/2TB-NVMe/prod/apps/mempool-stack/data/electrs/*
+
+# Restart and wait for full sync (3-4 hours on NVMe)
+docker compose up -d
+
+# Monitor sync progress
+watch -n 5 'du -sh /media/sam/2TB-NVMe/prod/apps/mempool-stack/data/electrs/'
+```
+
+**How to verify clean sync**:
+```bash
+# Initial state (database empty)
+docker compose logs electrs | grep "blocks were added"
+# Should show: "0 blocks were added"
+
+# After 5 minutes
+du -sh /media/sam/2TB-NVMe/prod/apps/mempool-stack/data/electrs/
+# Should be growing: 4KB → 264MB → 1.5GB → ... → 38GB final
+```
+
+**Lesson**: If electrs sync fails, **reset database completely** instead of repeatedly restarting container.
+
+---
+
 ## 📊 Troubleshooting Checklist
 
 When electrs fails to sync, check in this order:
@@ -297,6 +383,51 @@ Bitcoin Core RPC accepts literal strings as passwords, even if they look like sh
 
 This is intentional for cookie-based auth.
 
+### 6. Port Conflicts Are Silent Killers
+
+**Problem**: electrs HTTP API wouldn't start (port 3000 occupied by Grafana)
+**Detection**: `sudo lsof -i :3000` revealed conflict
+**Impact**: mempool backend couldn't connect (silent timeout)
+
+**Rule**: **Always check port availability** before configuring services.
+
+```bash
+# Check if port is available
+sudo lsof -i :<port>
+
+# Find alternative port
+ss -tlnp | grep -E ":(3000|3001|3002)"
+```
+
+### 7. Database Corruption from Repeated Restarts
+
+**Problem**: electrs stuck in "Adding 0 blocks" loop after multiple container recreations
+**Cause**: Partial RocksDB data from interrupted sync
+**Symptom**: Database has Phase 1 data (txstore) but no Phase 2 data (history index)
+
+**Rule**: If electrs sync fails, **reset database completely** instead of repeatedly restarting:
+```bash
+docker compose down
+sudo rm -rf /media/sam/2TB-NVMe/prod/apps/mempool-stack/data/electrs/*
+docker compose up -d
+```
+
+**Prevention**: Minimize container recreations during initial sync. Get configuration right first, then start sync.
+
+### 8. Esplora vs Electrum Backend
+
+**Discovery**: mempool.space backend supports **two protocols**:
+- `MEMPOOL_BACKEND: "electrum"` → JSON-RPC protocol (port 50001)
+- `MEMPOOL_BACKEND: "esplora"` → HTTP REST API (port 3000/3001)
+
+**Recommendation**: Use **esplora** for mempool.space:
+- ✅ More features (full REST API)
+- ✅ Better for web applications
+- ✅ Standard HTTP (easier debugging with curl)
+- ❌ Electrum RPC is for Electrum wallets, not block explorers
+
+**mempool/electrs fork** includes both protocols on different ports.
+
 ---
 
 ## 📝 Configuration Files Reference
@@ -305,21 +436,30 @@ This is intentional for cookie-based auth.
 
 See: `/media/sam/2TB-NVMe/prod/apps/mempool-stack/docker-compose.yml`
 
-Key points:
-- electrs: `network_mode: host`
+**electrs configuration**:
+- `network_mode: host` (for Bitcoin Core 127.0.0.1 access)
 - Image: `mempool/electrs:latest`
 - Command: Array syntax with `-vvv`
 - Flag: `--index-unspendables`
+- HTTP API: `--http-addr 127.0.0.1:3001` (port 3001 to avoid Grafana conflict)
+- Electrum RPC: `--electrum-rpc-addr 127.0.0.1:50001`
+
+**API configuration**:
+- Backend: `MEMPOOL_BACKEND: "esplora"` (HTTP REST API)
+- electrs connection: `ESPLORA_REST_API_URL: "http://192.168.1.111:3001"`
+- Bitcoin Core: `CORE_RPC_HOST: "192.168.1.111"` (host IP instead of host.docker.internal)
 
 ### Verified Working setup_full_mempool_stack.sh
 
 See: `/media/sam/1TB/UTXOracle/scripts/setup_full_mempool_stack.sh`
 
-Improvements:
-- Auto-detects Bitcoin datadir
+**Key improvements**:
+- Auto-detects Bitcoin datadir from running process
+- Auto-detects host IP address (avoids host.docker.internal issues)
 - Extracts RPC credentials from bitcoin.conf
 - Uses correct electrs image and flags
-- Updated sync time estimates (3-4 hours)
+- Configures esplora backend (HTTP REST API on port 3001)
+- Updated sync time estimates (3-4 hours on NVMe)
 
 ---
 

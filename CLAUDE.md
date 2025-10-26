@@ -56,33 +56,73 @@ python3 UTXOracle.py -d 2025/10/17 --no-browser
 
 ## Architecture
 
-### Current Implementation (v9.1)
+### Current Implementation (spec-003: Hybrid Architecture)
 
-**UTXOracle.py** - Single-file reference implementation using a sequential 12-step algorithm:
+**4-Layer Architecture** - Combines reference implementation with self-hosted infrastructure:
 
-1. **Configuration Options** - Parse command-line args, detect OS, set Bitcoin data paths
-2. **Establish RPC Connection** - Connect to Bitcoin Core via RPC (cookie or bitcoin.conf auth)
-3. **Check Dates** - Validate date input and determine block range
-4. **Find Block Hashes** - Retrieve block hashes for analysis window
-5. **Initialize Histogram** - Set up data structure for transaction value distribution
-6. **Load Histogram from Transaction Data** - Extract and process on-chain transactions
-7. **Remove Round Bitcoin Amounts** - Filter out transactions with round BTC amounts (likely non-market activity)
-8. **Construct the Price Finding Stencil** - Create statistical clustering framework
-9. **Estimate a Rough Price** - Initial price approximation from clustered data
-10. **Create Intraday Price Points** - Generate hourly/block-level price estimates
-11. **Find the Exact Average Price** - Calculate final volume-weighted median price
-12. **Generate a Price Plot HTML Page** - Create interactive visualization with canvas/JavaScript
+#### Layer 1: Reference Implementation (UTXOracle.py)
+- Single-file reference implementation using sequential 12-step algorithm
+- Intentionally verbose for educational transparency
+- **IMMUTABLE** - Do not refactor
 
-The code is intentionally verbose and linear (top-to-bottom execution) for educational transparency, not production efficiency.
+#### Layer 2: Reusable Library (UTXOracle_library.py)
+- Extracted core algorithm (Steps 5-11) from reference implementation
+- Public API: `UTXOracleCalculator.calculate_price_for_transactions(txs)`
+- Enables Rust migration path (black box replacement)
+- Used by integration service for real-time analysis
+
+#### Layer 3: Self-Hosted Infrastructure (mempool.space + electrs)
+- **Replaces custom ZMQ/transaction parsing** (saved 1,122 lines of code)
+- Docker stack at `/media/sam/2TB-NVMe/prod/apps/mempool-stack/`
+- Components:
+  * **electrs** - Electrum server (38GB index, 3-4 hour sync on NVMe)
+  * **mempool backend** - API server (port 8999)
+  * **mempool frontend** - Web UI (port 8080)
+  * **MariaDB** - Transaction database
+- Benefits: Battle-tested, maintained by mempool.space team, zero custom parsing code
+
+#### Layer 4: Integration & Visualization
+- **Integration Service** (`scripts/daily_analysis.py`)
+  * Runs every 10 minutes via cron
+  * Fetches mempool.space exchange price (HTTP API)
+  * Calculates UTXOracle price (via UTXOracle_library)
+  * Compares prices, saves to DuckDB
+  * Validation: confidence ≥0.3, price in [$10k, $500k]
+  * Fallback: backup database, webhook alerts
+
+- **FastAPI Backend** (`api/main.py`)
+  * REST API: `/api/prices/latest`, `/api/prices/historical`, `/api/prices/comparison`
+  * Health check: `/health`
+  * Serves frontend dashboard
+  * Systemd service: `utxoracle-api.service`
+
+- **Plotly.js Frontend** (`frontend/comparison.html`)
+  * Time series chart: UTXOracle (green) vs Exchange (red)
+  * Stats cards: avg/max/min diff, correlation
+  * Timeframe selector: 7/30/90 days
+  * Black background + orange theme
+
+### Code Reduction (spec-002 → spec-003)
+
+**Eliminated Custom Infrastructure** (1,122 lines):
+- ❌ zmq_listener.py (229 lines) → mempool.space Docker stack
+- ❌ tx_processor.py (369 lines) → mempool.space Docker stack
+- ❌ block_parser.py (144 lines) → mempool.space Docker stack
+- ❌ orchestrator.py (271 lines) → mempool.space Docker stack
+- ❌ bitcoin_rpc.py (109 lines) → mempool.space Docker stack
+
+**Net Result**:
+- 40% less custom infrastructure code
+- 50% maintenance reduction (no binary parsing complexity)
+- Focus on core algorithm, not infrastructure
+- Battle-tested mempool.space stack
 
 ### Future Architecture Plans
 
-See **MODULAR_ARCHITECTURE.md** and **TECHNICAL_SPEC.md** for planned modular Rust-based architecture:
-
-- **5 independent modules**: Bitcoin Interface, Transaction Processor, Mempool Analyzer, Data Streamer, Visualization Renderer
-- **Real-time mempool analysis** with WebGL visualization
-- **ZMQ integration** for live transaction streaming
-- **Black box principle**: Each module independently replaceable without affecting others
+See **MODULAR_ARCHITECTURE.md** for planned Rust-based architecture:
+- Rust port of UTXOracle_library.py (black box replacement)
+- Real-time mempool analysis with WebGL visualization
+- Each module independently replaceable
 
 ## Repository Organization
 
@@ -96,7 +136,8 @@ CLAUDE.md                           # THIS FILE - Claude Code instructions
 LICENSE                             # Blue Oak Model License 1.0.0
 README.md                           # Project overview
 UTXOracle.py                        # Reference implementation v9.1 (IMMUTABLE)
-main.py                             # Live system entry point
+UTXOracle_library.py                # Reusable library (spec-003: T019-T029)
+main.py                             # Live system entry point (deprecated)
 pyproject.toml                      # UV workspace root
 uv.lock                             # Dependency lockfile (commit this!)
 │
@@ -141,9 +182,14 @@ uv.lock                             # Dependency lockfile (commit this!)
 ├── memory/
 ├── scripts/
 └── templates/
-archive/                            # Previous versions (v7, v8, v9)
+archive/                            # Previous versions (v7, v8, v9, spec-002)
 ├── CHANGELOG_SPEC.md
 ├── contadino_cosmico.md
+├── live-spec002/                       # Archived spec-002 implementation (Phase 3 cleanup)
+│   ├── backend/                        # Old modules (archived for reference)
+│   ├── frontend/                       # Old frontend (archived)
+│   ├── shared/                         # Old models (archived)
+│   └── DEPLOYMENT.md                   # Old deployment docs
 ├── start9/
 ├── v7/
 ├── v8/
@@ -191,21 +237,21 @@ examples/                           # Example outputs and screenshots
 └── visual_errata.png
 historical_data/                    # 672 days of historical outputs
 └── html_files/                         # HTML price analysis files
-│   │   └── [672 HTML files]
-live/                               # Modular live system implementation
-├── DEPLOYMENT.md
-├── utxoracle-live.service
-├── backend/                            # Python modules (ZMQ, processing, API)
-├── frontend/                           # HTML/JS/CSS visualization
-└── shared/                             # Shared data models
-scripts/                            # Utilities (batch processing, etc.)
+    └── [672 HTML files]
+api/                                # FastAPI backend (spec-003)
+├── __init__.py
+└── main.py                             # REST API server (420 lines)
+frontend/                           # Plotly.js dashboard (spec-003)
+└── comparison.html                     # Price comparison visualization
+scripts/                            # Utilities (batch processing, integration)
 ├── README.md
-├── live_mempool_with_baseline.py
-├── setup_full_mempool_stack.sh
-├── setup_mempool_env.sh
-├── utxoracle_batch.py
-├── utxoracle_mempool_integration.py
-└── verify_mempool_setup.sh
+├── daily_analysis.py                   # Integration service (spec-003: T038-T047)
+├── setup_full_mempool_stack.sh         # Infrastructure deployment (spec-003: T001-T012)
+├── utxoracle_batch.py                  # Batch historical processing
+├── live_mempool_with_baseline.py       # Legacy (archived)
+├── setup_mempool_env.sh                # Legacy (archived)
+├── utxoracle_mempool_integration.py    # Legacy (archived)
+└── verify_mempool_setup.sh             # Legacy (archived)
 specs/                              # Feature specifications (SpecKit)
 ├── 001-specify-scripts-bash/
 ├── 002-mempool-live-oracle/
@@ -259,19 +305,27 @@ tests/                              # Test suite (pytest)
 
 ### File Placement Conventions
 
-**New backend modules** → `live/backend/`
-**New frontend code** → `live/frontend/`
-**New tests** → `tests/test_<module>.py` (mirror live/ structure)
+**New backend modules** → `api/` (FastAPI endpoints)
+**New frontend code** → `frontend/` (HTML/JS/CSS)
+**Integration scripts** → `scripts/` (cron jobs, batch processing)
+**Core library** → Root directory (`UTXOracle_library.py`)
+**New tests** → `tests/test_<module>.py`
 **New docs** → `docs/` (or `.claude/docs/` if meta-documentation)
 **Agent specs** → `.claude/agents/`
 **Skills** → `.claude/skills/`
-**Utilities** → `scripts/`
 **Specs** → `specs/<feature-id>/`
 
 ### Immutable Files
 
 - **UTXOracle.py** - Reference implementation (do not refactor)
+- **UTXOracle_library.py** - Extracted algorithm (only refactor with tests)
 - Historical data in `historical_data/html_files/`
+
+### Deprecated/Archived (spec-002)
+
+- `archive/live-spec002/` - Old custom infrastructure (ZMQ, tx parsing)
+- `main.py` - Old entry point (replaced by `scripts/daily_analysis.py`)
+- Legacy scripts: `live_mempool_with_baseline.py`, `setup_mempool_env.sh`, etc.
 
 ## Agent & Skill Architecture
 

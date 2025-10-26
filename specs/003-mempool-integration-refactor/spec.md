@@ -202,7 +202,7 @@ The `/live/` directory (from spec 002) contains **1,222 lines of code duplicatin
 ### Deployment Requirements
 
 - ✅ Self-hosted mempool.space stack runs on NVMe
-- ✅ electrs 38GB database synced (8-12 hours initial)
+- ✅ electrs database synced (3-4 hours initial on NVMe)
 - ✅ Systemd services auto-start on boot
 - ✅ Cron jobs execute reliably
 - ✅ Logs rotate and archive automatically

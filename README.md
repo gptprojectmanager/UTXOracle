@@ -62,9 +62,12 @@ Check the live visual version of UTXOracle here:
 
 ## 🛠 Structure
 
-- `UTXOracle.py` – The main reference implementation (v9.1)
-- `archive/` – Historical versions (v7, v8, v9, start9)
-- `live/` – Real-time mempool analysis system (in development)
+- `UTXOracle.py` – The main reference implementation (v9.1) - IMMUTABLE
+- `UTXOracle_library.py` – Reusable library extracted from reference implementation
+- `api/` – FastAPI backend for price comparison dashboard
+- `frontend/` – Plotly.js visualization dashboard
+- `scripts/` – Integration service and batch processing utilities
+- `archive/` – Historical versions (v7, v8, v9, spec-002)
 - `docs/` – Algorithm documentation and task specifications
 
 ---
@@ -93,82 +96,114 @@ Inspired by the idea that **Bitcoin's price should come from Bitcoin itself.**
 
 ---
 
-## 🚀 UTXOracle Live - Real-time Mempool Oracle
+## 🚀 Price Comparison Dashboard - UTXOracle vs Exchange Prices
 
-**New Feature**: Real-time Bitcoin price estimation from mempool analysis (live system in development)
+**New Feature** (spec-003): Self-hosted infrastructure with real-time price comparison
 
-### Quick Start (Live System)
+### Architecture Overview
+
+**4-Layer Hybrid Architecture**:
+
+1. **Reference Implementation** (`UTXOracle.py`) - IMMUTABLE, educational transparency
+2. **Reusable Library** (`UTXOracle_library.py`) - Extracted core algorithm for reuse
+3. **Self-Hosted Infrastructure** - mempool.space + electrs Docker stack (replaces custom ZMQ parsing)
+4. **Integration & Visualization** - FastAPI backend + Plotly.js frontend
+
+**Benefits**:
+- ✅ Zero custom ZMQ/transaction parsing code (1,122 lines eliminated)
+- ✅ Battle-tested mempool.space infrastructure
+- ✅ Focus on core algorithm, not infrastructure
+- ✅ Real-time price comparison every 10 minutes
+- ✅ Historical data visualization (7/30/90 days)
+
+### Quick Start (Price Comparison Dashboard)
 
 **Prerequisites**:
-- Bitcoin Core 25.0+ with ZMQ enabled
+- Bitcoin Core 25.0+ (fully synced, RPC enabled)
+- Docker & Docker Compose
 - Python 3.11+
 - UV package manager
+- 50GB free disk space (NVMe recommended)
 
 **Installation**:
 
 ```bash
-# 1. Configure Bitcoin Core ZMQ (add to ~/.bitcoin/bitcoin.conf)
-zmqpubrawtx=tcp://127.0.0.1:28332
-# Restart bitcoind after configuration change
-
-# 2. Clone repository and checkout live branch
+# 1. Clone repository
 git clone https://github.com/Unbesteveable/UTXOracle.git
 cd UTXOracle
-git checkout 002-mempool-live-oracle
+git checkout 003-mempool-integration-refactor
 
-# 3. Install UV package manager
+# 2. Install UV package manager
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.cargo/env
 
-# 4. Install dependencies
+# 3. Install dependencies
 uv sync
 
-# 5. Start backend server
-uv run uvicorn live.backend.api:app --reload --host 0.0.0.0 --port 8000
+# 4. Deploy mempool.space infrastructure (3-4 hour electrs sync on NVMe)
+bash scripts/setup_full_mempool_stack.sh
 
-# 6. Open browser to http://localhost:8000
+# 5. Monitor electrs sync (wait for "finished full compaction")
+cd /media/sam/2TB-NVMe/prod/apps/mempool-stack
+docker-compose logs -f electrs
+
+# 6. Start FastAPI backend (after electrs sync completes)
+sudo systemctl start utxoracle-api
+
+# 7. Open price comparison dashboard
+xdg-open http://localhost:8000/static/comparison.html
 ```
 
 **Expected Display**:
-- Large price display with confidence score (0.0-1.0)
-- Real-time scatter plot of transactions (orange points)
-- System stats (received/filtered/active transactions)
-- Connection status indicator
+- Time series chart: UTXOracle price (green) vs Exchange price (red)
+- Stats cards: Average difference, Max difference, Correlation
+- Timeframe selector: 7/30/90 days
+- Black background + orange theme (UTXOracle branding)
 
 **System Requirements**:
-- RAM: 8GB minimum (16GB recommended)
+- RAM: 16GB minimum (32GB recommended for electrs)
 - CPU: 4+ cores recommended
-- Network: Active Bitcoin Core node with mempool
+- Disk: 50GB free (NVMe recommended for fast electrs sync)
+- Network: Active Bitcoin Core node
 
-For detailed setup instructions, see [quickstart.md](specs/002-mempool-live-oracle/quickstart.md)
+For detailed setup instructions, see [specs/003-mempool-integration-refactor/spec.md](specs/003-mempool-integration-refactor/spec.md)
 
-### Production Deployment (Systemd)
+### Production Deployment
 
-Create `/etc/systemd/system/utxoracle-live.service`:
+**Systemd Services**:
+- `utxoracle-api.service` - FastAPI backend (auto-starts on boot)
+- Cron job: `scripts/daily_analysis.py` (runs every 10 minutes)
 
-```ini
-[Unit]
-Description=UTXOracle Live - Real-time Mempool Price Oracle
-After=network.target bitcoind.service
-
-[Service]
-Type=simple
-User=utxoracle
-WorkingDirectory=/opt/UTXOracle
-ExecStart=/home/utxoracle/.cargo/bin/uv run uvicorn live.backend.api:app --host 0.0.0.0 --port 8000
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
+**Docker Stack** (mempool.space + electrs):
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable utxoracle-live
-sudo systemctl start utxoracle-live
+cd /media/sam/2TB-NVMe/prod/apps/mempool-stack
+docker-compose up -d  # Auto-starts on boot
 ```
+
+**Health Checks**:
+```bash
+# API status
+curl http://localhost:8000/health | jq
+
+# Latest price comparison
+curl http://localhost:8000/api/prices/latest | jq
+
+# Historical data (7 days)
+curl http://localhost:8000/api/prices/historical?days=7 | jq
+```
+
+### Migration from spec-002
+
+If upgrading from the old spec-002 implementation (custom ZMQ/transaction parsing):
+
+1. Backup old `/live/` directory (archived in `archive/live-spec002/`)
+2. Follow installation steps above
+3. Review [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) for detailed migration path
+
+**Code Reduction**:
+- Eliminated 1,122 lines of custom infrastructure (40% reduction)
+- Replaced by battle-tested mempool.space Docker stack
+- 50% maintenance reduction (no binary parsing complexity)
 
 ---
 
