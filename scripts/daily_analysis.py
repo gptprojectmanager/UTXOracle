@@ -161,36 +161,238 @@ def fetch_mempool_price(api_url: str = "http://localhost:8999") -> float:
         raise
 
 
-def fetch_bitcoin_transactions(bitcoin_datadir: str) -> List[dict]:
+def _fetch_from_bitcoin_core(bitcoin_datadir: str) -> List[dict]:
     """
-    Fetch recent transactions from Bitcoin Core RPC.
-
-    Uses cookie authentication from Bitcoin data directory.
+    Tier 1: Fetch transactions from Bitcoin Core RPC (primary source).
 
     Args:
         bitcoin_datadir: Path to Bitcoin data directory
 
     Returns:
         list: Transaction dictionaries with vout/vin data
+
+    Raises:
+        ValueError: If cannot connect or fetch transactions
     """
-    # This is a simplified stub - in production would use bitcoin-rpc library
-    # For now, return mock data that matches the library's expected format
+    import subprocess
 
-    # TODO: Implement actual Bitcoin Core RPC connection
-    # from bitcoin.rpc import RawProxy
-    # rpc = RawProxy(btc_conf_file=f"{bitcoin_datadir}/bitcoin.conf")
-    # blocks = rpc.getbestblockhash()
-    # block_data = rpc.getblock(blocks, 2)  # verbosity=2 includes tx details
-    # return block_data['tx']
+    # Read RPC credentials from bitcoin.conf
+    conf_path = f"{bitcoin_datadir}/bitcoin.conf"
+    rpc_user = rpc_pass = None
 
-    logging.warning("Using mock Bitcoin RPC - implement actual RPC connection")
+    try:
+        with open(conf_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("rpcuser="):
+                    rpc_user = line.split("=", 1)[1]
+                elif line.startswith("rpcpassword="):
+                    rpc_pass = line.split("=", 1)[1]
+    except FileNotFoundError:
+        raise ValueError(f"bitcoin.conf not found at {conf_path}")
 
-    # Return mock transactions for testing
-    return [
-        {"vout": [{"value": 0.001}], "vin": [{}]},
-        {"vout": [{"value": 0.0009}], "vin": [{}]},
-        {"vout": [{"value": 0.0011}], "vin": [{}]},
-    ]
+    if not (rpc_user and rpc_pass):
+        raise ValueError("rpcuser/rpcpassword not found in bitcoin.conf")
+
+    rpc_url = "http://127.0.0.1:8332/"
+    auth = f"{rpc_user}:{rpc_pass}"
+
+    # Get best block hash
+    result = subprocess.run(
+        [
+            "curl",
+            "-s",
+            "--user",
+            auth,
+            "--data-binary",
+            '{"jsonrpc":"1.0","method":"getbestblockhash","params":[]}',
+            "-H",
+            "content-type: text/plain;",
+            rpc_url,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    if result.returncode != 0:
+        raise ValueError(f"Bitcoin Core RPC failed: {result.stderr}")
+
+    best_hash = json.loads(result.stdout)["result"]
+    logging.info(f"[Bitcoin Core] Fetching block {best_hash[:16]}...")
+
+    # Get block with full tx details (verbosity=2)
+    result = subprocess.run(
+        [
+            "curl",
+            "-s",
+            "--user",
+            auth,
+            "--data-binary",
+            f'{{"jsonrpc":"1.0","method":"getblock","params":["{best_hash}",2]}}',
+            "-H",
+            "content-type: text/plain;",
+            rpc_url,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    if result.returncode != 0:
+        raise ValueError(f"Bitcoin Core getblock failed: {result.stderr}")
+
+    block_data = json.loads(result.stdout)["result"]
+    transactions = block_data["tx"]
+
+    if len(transactions) < 1000:
+        raise ValueError(f"Block has only {len(transactions)} tx (expected >=1000)")
+
+    logging.info(f"[Bitcoin Core] ✅ Fetched {len(transactions)} transactions")
+    return transactions
+
+
+def _fetch_from_mempool_local() -> List[dict]:
+    """
+    Tier 2: Fetch from self-hosted mempool.space (secondary source).
+
+    Returns:
+        list: Transaction dictionaries
+
+    Raises:
+        ValueError: If local mempool unavailable or data incomplete
+    """
+    local_url = "http://localhost:8999"
+
+    # Get best block hash
+    resp = requests.get(f"{local_url}/api/blocks/tip/hash", timeout=10)
+    resp.raise_for_status()
+    best_hash = resp.text.strip()
+
+    logging.info(f"[Mempool Local] Fetching block {best_hash[:16]}...")
+
+    # Get block info to know tx_count
+    resp = requests.get(f"{local_url}/api/block/{best_hash}", timeout=10)
+    resp.raise_for_status()
+    block_info = resp.json()
+    total_tx = block_info["tx_count"]
+
+    # Fetch all transactions (paginated: 25 per page)
+    transactions = []
+    for start_index in range(0, total_tx, 25):
+        resp = requests.get(
+            f"{local_url}/api/block/{best_hash}/txs/{start_index}",
+            timeout=30,
+        )
+        resp.raise_for_status()
+        transactions.extend(resp.json())
+
+    if len(transactions) < 1000:
+        raise ValueError(f"Fetched only {len(transactions)} tx (expected >=1000)")
+
+    logging.info(f"[Mempool Local] ✅ Fetched {len(transactions)} transactions")
+    return transactions
+
+
+def _fetch_from_mempool_public() -> List[dict]:
+    """
+    Tier 3: Fetch from public mempool.space API (last resort).
+
+    Returns:
+        list: Transaction dictionaries
+
+    Raises:
+        ValueError: If public API unavailable or rate limited
+    """
+    public_url = "https://mempool.space"
+
+    # Get best block hash
+    resp = requests.get(f"{public_url}/api/blocks/tip/hash", timeout=15)
+    resp.raise_for_status()
+    best_hash = resp.text.strip()
+
+    logging.info(f"[Mempool Public] Fetching block {best_hash[:16]}...")
+
+    # Get block info
+    resp = requests.get(f"{public_url}/api/block/{best_hash}", timeout=15)
+    resp.raise_for_status()
+    block_info = resp.json()
+    total_tx = block_info["tx_count"]
+
+    # Fetch all transactions (paginated, with rate limit handling)
+    transactions = []
+    for start_index in range(0, total_tx, 25):
+        try:
+            resp = requests.get(
+                f"{public_url}/api/block/{best_hash}/txs/{start_index}",
+                timeout=30,
+            )
+            resp.raise_for_status()
+            transactions.extend(resp.json())
+
+            # Be nice to public API: small delay between requests
+            if start_index % 100 == 0 and start_index > 0:
+                import time
+
+                time.sleep(0.5)
+
+        except requests.exceptions.RequestException as e:
+            logging.warning(
+                f"[Mempool Public] Request failed at index {start_index}: {e}"
+            )
+            # Continue with partial data if we have enough
+            if len(transactions) >= 1000:
+                break
+            raise
+
+    if len(transactions) < 1000:
+        raise ValueError(f"Fetched only {len(transactions)} tx (expected >=1000)")
+
+    logging.info(f"[Mempool Public] ✅ Fetched {len(transactions)} transactions")
+    return transactions
+
+
+def fetch_bitcoin_transactions(bitcoin_datadir: str) -> List[dict]:
+    """
+    Fetch Bitcoin transactions with 3-tier fallback cascade.
+
+    Tries sources in order:
+    1. Bitcoin Core RPC (fast, complete, local)
+    2. mempool.space local (self-hosted, reliable)
+    3. mempool.space public API (always available, slow)
+
+    Args:
+        bitcoin_datadir: Path to Bitcoin data directory
+
+    Returns:
+        list: Transaction dictionaries with vout/vin data
+
+    Raises:
+        ValueError: If all sources fail
+    """
+    # Tier 1: Bitcoin Core RPC (primary)
+    try:
+        return _fetch_from_bitcoin_core(bitcoin_datadir)
+    except Exception as e:
+        logging.warning(f"[Tier 1] Bitcoin Core failed: {e}")
+
+    # Tier 2: mempool.space local (secondary)
+    try:
+        return _fetch_from_mempool_local()
+    except Exception as e:
+        logging.warning(f"[Tier 2] Mempool local failed: {e}")
+
+    # Tier 3: mempool.space public API (last resort)
+    try:
+        return _fetch_from_mempool_public()
+    except Exception as e:
+        logging.error(f"[Tier 3] Mempool public failed: {e}")
+
+    # All sources failed
+    raise ValueError(
+        "All transaction sources unavailable. "
+        "Check Bitcoin Core, local mempool, and network connectivity."
+    )
 
 
 def calculate_utxoracle_price(bitcoin_datadir: str) -> Dict:
@@ -216,12 +418,39 @@ def calculate_utxoracle_price(bitcoin_datadir: str) -> Dict:
         calc = UTXOracleCalculator()
         result = calc.calculate_price_for_transactions(transactions)
 
+        # Validate result quality
+        price = result.get("price_usd")
+        confidence = result.get("confidence", 0)
+        tx_count = result.get("tx_count", 0)
+
+        # Sanity checks
+        if price is None:
+            raise ValueError("UTXOracle returned None price")
+
+        if not (10000 <= price <= 500000):
+            raise ValueError(
+                f"Price ${price:,.0f} outside valid range [$10k-$500k]. "
+                f"Likely calculation error or extreme market conditions."
+            )
+
+        if confidence < 0.3:
+            raise ValueError(
+                f"Confidence {confidence:.2f} too low (<0.3). "
+                f"Result not reliable for production use."
+            )
+
+        if tx_count < 1000:
+            raise ValueError(
+                f"Calculated from only {tx_count} tx (<1000). "
+                f"Data quality insufficient."
+            )
+
         logging.info(
-            "UTXOracle price calculated",
+            "UTXOracle price calculated and validated",
             extra={
-                "price_usd": result.get("price_usd"),
-                "confidence": result.get("confidence"),
-                "tx_count": result.get("tx_count"),
+                "price_usd": price,
+                "confidence": confidence,
+                "tx_count": tx_count,
             },
         )
 
@@ -364,6 +593,73 @@ def init_database(db_path: str) -> None:
     except Exception as e:
         logging.error(f"Failed to initialize database: {e}")
         raise
+
+
+def detect_gaps(conn, max_days_back: int = 7) -> List[str]:
+    """
+    Detect missing dates in the last N days.
+
+    Args:
+        conn: DuckDB connection
+        max_days_back: How many days back to check
+
+    Returns:
+        list: Missing dates as strings (YYYY-MM-DD)
+    """
+    query = """
+        WITH date_range AS (
+            SELECT (CURRENT_DATE - INTERVAL (n) DAY)::DATE as expected_date
+            FROM generate_series(0, ?) as t(n)
+        )
+        SELECT dr.expected_date::VARCHAR
+        FROM date_range dr
+        LEFT JOIN prices p ON DATE(p.timestamp) = dr.expected_date
+        WHERE p.timestamp IS NULL
+        ORDER BY dr.expected_date DESC
+    """
+
+    result = conn.execute(query, [max_days_back - 1]).fetchall()
+    gaps = [row[0] for row in result]
+
+    if gaps:
+        logging.warning(f"Detected {len(gaps)} missing dates: {gaps}")
+    else:
+        logging.info(f"No gaps detected in last {max_days_back} days")
+
+    return gaps
+
+
+def backfill_gap(date_str: str, config: Dict) -> bool:
+    """
+    Backfill a single missing date with UTXOracle + mempool prices.
+
+    Args:
+        date_str: Date to backfill (YYYY-MM-DD format)
+        config: Configuration dictionary
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    logging.info(f"[Backfill] Processing {date_str}...")
+
+    try:
+        # Fetch mempool exchange price for that date
+        # NOTE: mempool.space API doesn't have historical prices per date
+        # We can only get current price, so skip mempool_price for historical
+        mem_price = None
+        logging.info("[Backfill] Mempool price: N/A (historical data)")
+
+        # Calculate UTXOracle price for that date
+        # This would require fetching historical block data for that date
+        # For now, skip backfill (too complex without date-based block API)
+        logging.warning(
+            f"[Backfill] Skipping {date_str} - historical backfill not yet implemented"
+        )
+        return False
+
+    except Exception as e:
+        logging.error(f"[Backfill] Failed to backfill {date_str}: {e}")
+        return False
 
 
 def save_to_duckdb(data: Dict, db_path: str, backup_path: str) -> None:
@@ -558,6 +854,19 @@ def main():
         init_database(config["DUCKDB_PATH"])
         logging.info("Database initialized successfully")
         sys.exit(0)
+
+    # Check for gaps before running analysis
+    try:
+        with duckdb.connect(config["DUCKDB_PATH"]) as conn:
+            gaps = detect_gaps(conn, max_days_back=7)
+            if gaps:
+                logging.warning(
+                    f"Found {len(gaps)} missing dates in last 7 days: {gaps[:5]}"
+                )
+                # Note: Backfill not yet implemented for historical dates
+                # Will be logged and reported via /health endpoint
+    except Exception as e:
+        logging.warning(f"Gap detection failed: {e}")
 
     # Main analysis workflow
     try:

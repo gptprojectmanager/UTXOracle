@@ -143,6 +143,12 @@ class HealthStatus(BaseModel):
     database: str
     uptime_seconds: float
     started_at: str
+    gaps_detected: Optional[int] = Field(
+        default=None, description="Number of missing dates in last 7 days"
+    )
+    missing_dates: Optional[List[str]] = Field(
+        default=None, description="List of missing dates (max 10)"
+    )
 
 
 # =============================================================================
@@ -358,29 +364,55 @@ async def get_comparison_stats(
 @app.get("/health", response_model=HealthStatus)
 async def health_check():
     """
-    API health check endpoint.
+    API health check endpoint with gap detection.
 
     Returns:
-        HealthStatus: Health status with database and uptime info
+        HealthStatus: Health status with database, uptime, and gap info
     """
     # Calculate uptime
     uptime = (datetime.now() - STARTUP_TIME).total_seconds()
 
-    # Check database connectivity
+    # Check database connectivity and detect gaps
     db_status = "disconnected"
+    gaps = []
+    gaps_count = 0
+
     try:
         conn = get_db_connection()
+
         # Try a simple query
         conn.execute("SELECT 1").fetchone()
-        conn.close()
         db_status = "connected"
+
+        # Detect gaps in last 7 days
+        gap_query = """
+            WITH date_range AS (
+                SELECT (CURRENT_DATE - INTERVAL (n) DAY)::DATE as expected_date
+                FROM generate_series(0, 6) as t(n)
+            )
+            SELECT dr.expected_date::VARCHAR
+            FROM date_range dr
+            LEFT JOIN prices p ON DATE(p.timestamp) = dr.expected_date
+            WHERE p.timestamp IS NULL
+            ORDER BY dr.expected_date DESC
+            LIMIT 10
+        """
+        gap_results = conn.execute(gap_query).fetchall()
+        gaps = [row[0] for row in gap_results]
+        gaps_count = len(gaps)
+
+        conn.close()
+
     except Exception as e:
         logging.error(f"Health check database error: {e}")
         db_status = f"error: {str(e)}"
 
     # Determine overall status
     if db_status == "connected":
-        status = "healthy"
+        if gaps_count > 0:
+            status = "warning"  # Data gaps detected
+        else:
+            status = "healthy"
     elif "error" in db_status:
         status = "unhealthy"
     else:
@@ -391,6 +423,8 @@ async def health_check():
         database=db_status,
         uptime_seconds=uptime,
         started_at=STARTUP_TIME.isoformat(),
+        gaps_detected=gaps_count if gaps_count > 0 else None,
+        missing_dates=gaps if gaps else None,
     )
 
 

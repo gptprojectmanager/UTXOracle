@@ -184,16 +184,16 @@
             <div class="stat-value" id="minDiff">Loading...</div>
         </div>
         <div class="stat-card">
-            <div class="stat-label">Total Entries</div>
-            <div class="stat-value" id="totalEntries">Loading...</div>
+            <div class="stat-label">Avg % Difference</div>
+            <div class="stat-value" id="avgDiffPercent">Loading...</div>
         </div>
     </div>
 
     <!-- Timeframe Controls -->
     <div class="controls">
-        <button class="timeframe-btn active" onclick="loadData(7)">7 Days</button>
-        <button class="timeframe-btn" onclick="loadData(30)">30 Days</button>
-        <button class="timeframe-btn" onclick="loadData(90)">90 Days</button>
+        <button class="timeframe-btn active" onclick="loadData(7, this)">7 Days</button>
+        <button class="timeframe-btn" onclick="loadData(30, this)">30 Days</button>
+        <button class="timeframe-btn" onclick="loadData(90, this)">90 Days</button>
     </div>
 
     <!-- T075: Chart -->
@@ -216,7 +216,9 @@
         // T074: Fetch data from API
         async function fetchHistoricalData(days) {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/prices/historical?days=${days}`);
+                // Add timestamp to prevent caching
+                const timestamp = new Date().getTime();
+                const response = await fetch(`${API_BASE_URL}/api/prices/historical?days=${days}&_=${timestamp}`);
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
@@ -229,7 +231,9 @@
 
         async function fetchComparisonStats(days) {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/prices/comparison?days=${days}`);
+                // Add timestamp to prevent caching
+                const timestamp = new Date().getTime();
+                const response = await fetch(`${API_BASE_URL}/api/prices/comparison?days=${days}&_=${timestamp}`);
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
@@ -248,7 +252,13 @@
                 stats.max_diff !== null ? `$${stats.max_diff.toFixed(2)}` : 'N/A';
             document.getElementById('minDiff').textContent =
                 stats.min_diff !== null ? `$${stats.min_diff.toFixed(2)}` : 'N/A';
-            document.getElementById('totalEntries').textContent = stats.total_entries;
+            // Show avg % difference from API
+            const avgDiffPercentEl = document.getElementById('avgDiffPercent');
+            if (stats.avg_diff_percent !== null && stats.avg_diff_percent !== undefined && !isNaN(stats.avg_diff_percent)) {
+                avgDiffPercentEl.textContent = `${stats.avg_diff_percent.toFixed(2)}%`;
+            } else {
+                avgDiffPercentEl.textContent = 'N/A';
+            }
 
             // Color code based on value
             const avgDiffEl = document.getElementById('avgDiff');
@@ -355,14 +365,16 @@
         }
 
         // Main data loading function
-        async function loadData(days) {
+        async function loadData(days, eventTarget = null) {
             currentDays = days;
 
-            // Update active button
-            document.querySelectorAll('.timeframe-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
+            // Update active button (only if called from button click)
+            if (eventTarget) {
+                document.querySelectorAll('.timeframe-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                eventTarget.classList.add('active');
+            }
 
             // Show loading
             document.getElementById('priceChart').innerHTML =
