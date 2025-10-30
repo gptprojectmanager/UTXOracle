@@ -345,7 +345,7 @@
 
 **Time Estimate**: 1 day
 
-- [ ] T100 [Validation] End-to-end test: Trigger cron manually → Verify new data in DuckDB → Verify API returns it → Verify frontend shows it
+- [X] T100 [Validation] End-to-end test: Trigger cron manually → Verify new data in DuckDB → Verify API returns it → Verify frontend shows it
 - [ ] T101 [Validation] Load test: Insert 10,000 rows into DuckDB, measure query performance (should remain <50ms)
 - [ ] T102 [Validation] Failure recovery test: Stop mempool-stack → Verify daily_analysis.py handles error gracefully → Restart stack → Verify resumes
 - [ ] T103 [Validation] Price divergence test: Simulate large divergence (>5%) → Verify logged prominently
@@ -355,7 +355,7 @@
 
 ### Acceptance Criteria Validation
 
-- [ ] T107 [Validation] User Story 1: Price comparison dashboard shows dual time series (green vs red)
+- [X] T107 [Validation] User Story 1: Price comparison dashboard shows dual time series (green vs red)
 - [ ] T108 [Validation] User Story 2: Codebase is ≤800 lines (excluding tests and archive)
 - [ ] T109 [Validation] User Story 3: `UTXOracle_library` import works, Rust migration path clear
 - [ ] T110 [Validation] User Story 4: System survives reboot, all services auto-start
