@@ -332,14 +332,36 @@ class UTXOracleCalculator:
         # Calculate price from best slide position
         # Best slide bin index
         best_slide_bin = center_p001 + best_slide
+
+        # DEBUG: Log convergence details
+        import sys
+
+        print("\n=== CONVERGENCE DEBUG ===", file=sys.stderr)
+        print(f"center_p001: {center_p001}", file=sys.stderr)
+        print(f"best_slide: {best_slide}", file=sys.stderr)
+        print(f"best_slide_bin: {best_slide_bin}", file=sys.stderr)
+        print(f"best_slide_score: {best_slide_score}", file=sys.stderr)
+
         if best_slide_bin < 0 or best_slide_bin >= len(self.bins):
             price_usd = None
+            print("ERROR: best_slide_bin out of range!", file=sys.stderr)
         else:
             # BTC amount at best slide position
             usd100_in_btc_best = self.bins[best_slide_bin]
+            print(
+                f"bins[{best_slide_bin}]: {usd100_in_btc_best:.10f} BTC",
+                file=sys.stderr,
+            )
+
             # Implied price: $100 / BTC_amount = $/BTC
             btc_in_usd_best = (
                 100.0 / usd100_in_btc_best if usd100_in_btc_best > 0 else None
+            )
+            print(
+                f"Calculated price (BEFORE neighbor): ${btc_in_usd_best:,.2f}"
+                if btc_in_usd_best
+                else "Price: None",
+                file=sys.stderr,
             )
 
             # Neighbor refinement (lines 1119-1152)
@@ -408,6 +430,18 @@ class UTXOracleCalculator:
                     price_usd = btc_in_usd_best
             else:
                 price_usd = btc_in_usd_best
+
+        # DEBUG: Final result
+        print("\n=== FINAL RESULT ===", file=sys.stderr)
+        print(
+            f"Final price_usd: ${price_usd:,.2f}"
+            if price_usd
+            else "Final price_usd: None",
+            file=sys.stderr,
+        )
+        print(f"Confidence: {confidence}", file=sys.stderr)
+        print(f"Peak bin: {peak_bin}, Peak BTC: {peak_btc}", file=sys.stderr)
+        print("=" * 50 + "\n", file=sys.stderr)
 
         return {
             "price_usd": price_usd,

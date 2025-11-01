@@ -399,3 +399,65 @@
 ```
 /speckit.implement
 ```
+
+---
+
+## 🐛 Phase 7: Critical Bug Fix - UTXOracle Library
+
+### T108 [CRITICAL] Debug UTXOracle_library.py convergence algorithm
+**Status**: In Progress  
+**Priority**: P0 (Blocking production)
+
+**Issue**: Library returns hardcoded $100k instead of calculated price.
+
+**Root Cause** (from debug):
+- Stencil convergence finds `best_slide_bin = 601` (0.001 BTC exactly)
+- Price calc: $100 / 0.001 = $100,000 (hardcoded!)
+- Peak bin is 534 (0.000462 BTC) → should give $216k
+- `best_slide = 0` indicates stencil pattern matches WITHOUT shifting (suspicious)
+
+**Debug Output**:
+```
+center_p001: 601
+best_slide: 0
+best_slide_bin: 601
+bins[601]: 0.0010000000 BTC  ← Problem!
+Calculated price: $100,000.00
+Peak bin: 534, Peak BTC: 0.00046238102139926034
+```
+
+**Tasks**:
+1. ✅ Add debug logging to convergence algorithm
+2. ⬜ Compare stencil sliding with reference UTXOracle.py
+3. ⬜ Verify histogram normalization (smoothing may be broken)
+4. ⬜ Check if center_p001 calculation is correct
+5. ⬜ Test with different stencil parameters
+
+**Files**:
+- `UTXOracle_library.py:332-446` (convergence algorithm)
+- `UTXOracle.py:1050-1200` (reference implementation)
+
+---
+
+### T109 [CRITICAL] Re-extract UTXOracle_library.py from reference
+**Status**: Pending (blocked by T108)  
+**Priority**: P0
+
+**Goal**: Complete rewrite of library extraction from UTXOracle.py reference.
+
+**Approach**:
+1. Line-by-line comparison: reference vs library
+2. Identify ALL divergences in extraction
+3. Rewrite divergent sections exactly matching reference
+4. Add comprehensive unit tests for each step (5-11)
+
+**Success Criteria**:
+- Library produces same price as reference (±1%)
+- All 672 historical dates pass validation
+- Confidence scores match reference
+
+**Estimated Time**: 3-4 hours  
+**Blocker**: Must understand root cause from T108 first
+
+---
+
