@@ -84,22 +84,26 @@ def parse_html_metadata(html_path: Path) -> Optional[Dict]:
         first_block = min(heights)
         last_block = max(heights)
 
-        # Extract prices array (intraday price evolution)
-        # UTXOracle.py generates: const prices = [p1, p2, ..., pFinal]
+        # Extract final price from title (NOT from prices array!)
+        # The prices array contains only FILTERED intraday prices for the chart
+        # The FINAL price is in the title: "UTXOracle Consensus Price $110,537"
+        title_match = re.search(r"UTXOracle Consensus Price \$([0-9,]+)", content)
+        if not title_match:
+            logging.error(f"Could not find consensus price in {html_path.name}")
+            return None
+
+        price_str = title_match.group(1).replace(",", "")
+        final_price = float(price_str)
+
+        # Also extract prices array for reference (intraday evolution)
         prices_match = re.search(r"const prices = \[([0-9., ]+)\]", content)
-        if not prices_match:
-            logging.error(f"Could not find prices array in {html_path.name}")
-            return None
-
-        prices_str = prices_match.group(1)
-        prices_array = [float(p.strip()) for p in prices_str.split(",") if p.strip()]
-
-        if not prices_array:
-            logging.error(f"Empty prices array in {html_path.name}")
-            return None
-
-        # Final price is last element
-        final_price = prices_array[-1]
+        if prices_match:
+            prices_str = prices_match.group(1)
+            prices_array = [
+                float(p.strip()) for p in prices_str.split(",") if p.strip()
+            ]
+        else:
+            prices_array = []
 
         return {
             "date": date_str,

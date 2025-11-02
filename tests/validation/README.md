@@ -115,6 +115,24 @@ python3 tests/validation/test_library_vs_duckdb.py --daily --samples 10
 3. Always validate against current UTXOracle.py, not stale HTML files
 4. Historical HTML files may show different prices if generated with older algorithm versions
 
+### ⚠️ HTML Price Extraction Bug (Fixed Nov 2, 2025)
+
+**Critical**: The `const prices = [...]` array in HTML files contains FILTERED intraday prices
+for chart visualization, NOT the final consensus price!
+
+The final price MUST be extracted from the title:
+```python
+# ❌ WRONG - extracts filtered intraday price
+final_price = prices_array[-1]
+
+# ✅ CORRECT - extracts consensus price from title
+title_match = re.search(r'UTXOracle Consensus Price \$([0-9,]+)', content)
+final_price = float(title_match.group(1).replace(',', ''))
+```
+
+This bug caused `test_library_direct_comparison.py` to report false discrepancies
+(5.22% avg) before the fix. After fix: 0.0005% avg (perfect matches).
+
 ## See Also
 
 - `UTXOracle_library.py` - `_iterate_convergence()` method has detailed documentation
