@@ -79,6 +79,14 @@ def load_config() -> Dict[str, str]:
         ),
         "MIN_PRICE_USD": float(os.getenv("MIN_PRICE_USD", "10000")),
         "MAX_PRICE_USD": float(os.getenv("MAX_PRICE_USD", "500000")),
+        # Fallback configuration (T127 - Phase 9: Soluzione 3c)
+        "MEMPOOL_FALLBACK_ENABLED": os.getenv(
+            "MEMPOOL_FALLBACK_ENABLED", "false"
+        ).lower()
+        == "true",
+        "MEMPOOL_FALLBACK_URL": os.getenv(
+            "MEMPOOL_FALLBACK_URL", "https://mempool.space"
+        ),
     }
 
     return config
@@ -252,27 +260,50 @@ def _fetch_from_bitcoin_core(bitcoin_datadir: str) -> List[dict]:
     return transactions
 
 
-def _fetch_from_mempool_local() -> List[dict]:
+def _convert_satoshi_to_btc(transactions: List[dict]) -> List[dict]:
     """
-    Tier 2: Fetch from self-hosted mempool.space (secondary source).
+    Convert mempool.space API format (satoshi) to UTXOracle_library format (BTC).
+
+    mempool.space API returns vout["value"] in satoshi (e.g., 638687680),
+    but UTXOracle_library.py expects BTC (e.g., 6.39).
+
+    Args:
+        transactions: List of transactions with satoshi values
 
     Returns:
-        list: Transaction dictionaries
+        list: Same transactions with BTC values
+    """
+    for tx in transactions:
+        for vout in tx.get("vout", []):
+            if "value" in vout:
+                # Convert satoshi → BTC (divide by 100,000,000)
+                vout["value"] = vout["value"] / 1e8
+
+    return transactions
+
+
+def _fetch_from_mempool_local(api_url: str) -> List[dict]:
+    """
+    Tier 1 (Primary): Fetch from self-hosted mempool.space.
+
+    Args:
+        api_url: Base URL for mempool.space API (e.g., http://localhost:8999)
+
+    Returns:
+        list: Transaction dictionaries with vout values in BTC
 
     Raises:
         ValueError: If local mempool unavailable or data incomplete
     """
-    local_url = "http://localhost:8999"
-
     # Get best block hash
-    resp = requests.get(f"{local_url}/api/blocks/tip/hash", timeout=10)
+    resp = requests.get(f"{api_url}/api/blocks/tip/hash", timeout=10)
     resp.raise_for_status()
     best_hash = resp.text.strip()
 
-    logging.info(f"[Mempool Local] Fetching block {best_hash[:16]}...")
+    logging.info(f"[Primary API] Fetching block {best_hash[:16]}... (from {api_url})")
 
     # Get block info to know tx_count
-    resp = requests.get(f"{local_url}/api/block/{best_hash}", timeout=10)
+    resp = requests.get(f"{api_url}/api/block/{best_hash}", timeout=10)
     resp.raise_for_status()
     block_info = resp.json()
     total_tx = block_info["tx_count"]
@@ -281,7 +312,7 @@ def _fetch_from_mempool_local() -> List[dict]:
     transactions = []
     for start_index in range(0, total_tx, 25):
         resp = requests.get(
-            f"{local_url}/api/block/{best_hash}/txs/{start_index}",
+            f"{api_url}/api/block/{best_hash}/txs/{start_index}",
             timeout=30,
         )
         resp.raise_for_status()
@@ -290,13 +321,21 @@ def _fetch_from_mempool_local() -> List[dict]:
     if len(transactions) < 1000:
         raise ValueError(f"Fetched only {len(transactions)} tx (expected >=1000)")
 
-    logging.info(f"[Mempool Local] ✅ Fetched {len(transactions)} transactions")
+    # CRITICAL: Convert satoshi → BTC for UTXOracle_library compatibility
+    transactions = _convert_satoshi_to_btc(transactions)
+
+    logging.info(
+        f"[Primary API] ✅ Fetched {len(transactions)} transactions from {api_url}"
+    )
     return transactions
 
 
-def _fetch_from_mempool_public() -> List[dict]:
+def _fetch_from_mempool_public(api_url: str) -> List[dict]:
     """
-    Tier 3: Fetch from public mempool.space API (last resort).
+    Tier 2 (Fallback): Fetch from public mempool.space API.
+
+    Args:
+        api_url: Base URL for fallback API (e.g., https://mempool.space)
 
     Returns:
         list: Transaction dictionaries
@@ -304,17 +343,15 @@ def _fetch_from_mempool_public() -> List[dict]:
     Raises:
         ValueError: If public API unavailable or rate limited
     """
-    public_url = "https://mempool.space"
-
     # Get best block hash
-    resp = requests.get(f"{public_url}/api/blocks/tip/hash", timeout=15)
+    resp = requests.get(f"{api_url}/api/blocks/tip/hash", timeout=15)
     resp.raise_for_status()
     best_hash = resp.text.strip()
 
-    logging.info(f"[Mempool Public] Fetching block {best_hash[:16]}...")
+    logging.info(f"[Fallback API] Fetching block {best_hash[:16]}... (from {api_url})")
 
     # Get block info
-    resp = requests.get(f"{public_url}/api/block/{best_hash}", timeout=15)
+    resp = requests.get(f"{api_url}/api/block/{best_hash}", timeout=15)
     resp.raise_for_status()
     block_info = resp.json()
     total_tx = block_info["tx_count"]
@@ -324,7 +361,7 @@ def _fetch_from_mempool_public() -> List[dict]:
     for start_index in range(0, total_tx, 25):
         try:
             resp = requests.get(
-                f"{public_url}/api/block/{best_hash}/txs/{start_index}",
+                f"{api_url}/api/block/{best_hash}/txs/{start_index}",
                 timeout=30,
             )
             resp.raise_for_status()
@@ -338,7 +375,7 @@ def _fetch_from_mempool_public() -> List[dict]:
 
         except requests.exceptions.RequestException as e:
             logging.warning(
-                f"[Mempool Public] Request failed at index {start_index}: {e}"
+                f"[Fallback API] Request failed at index {start_index}: {e}"
             )
             # Continue with partial data if we have enough
             if len(transactions) >= 1000:
@@ -348,59 +385,86 @@ def _fetch_from_mempool_public() -> List[dict]:
     if len(transactions) < 1000:
         raise ValueError(f"Fetched only {len(transactions)} tx (expected >=1000)")
 
-    logging.info(f"[Mempool Public] ✅ Fetched {len(transactions)} transactions")
+    # CRITICAL: Convert satoshi → BTC for UTXOracle_library compatibility
+    transactions = _convert_satoshi_to_btc(transactions)
+
+    logging.info(
+        f"[Fallback API] ✅ Fetched {len(transactions)} transactions from {api_url}"
+    )
     return transactions
 
 
-def fetch_bitcoin_transactions(bitcoin_datadir: str) -> List[dict]:
+def fetch_bitcoin_transactions(config: Dict[str, any]) -> List[dict]:
     """
-    Fetch Bitcoin transactions with 3-tier fallback cascade.
+    Fetch Bitcoin transactions with configurable fallback (T124-T125).
 
-    Tries sources in order:
-    1. Bitcoin Core RPC (fast, complete, local)
-    2. mempool.space local (self-hosted, reliable)
-    3. mempool.space public API (always available, slow)
+    Phase 9: Soluzione 3c - Hybrid with configurable fallback.
+
+    Architecture:
+    - Primary: Self-hosted mempool.space API (config["MEMPOOL_API_URL"])
+    - Fallback: Public API (config["MEMPOOL_FALLBACK_URL"]) - opt-in only
+    - Privacy-first: Fallback disabled by default
 
     Args:
-        bitcoin_datadir: Path to Bitcoin data directory
+        config: Configuration dict with MEMPOOL_API_URL, MEMPOOL_FALLBACK_*
 
     Returns:
         list: Transaction dictionaries with vout/vin data
 
     Raises:
-        ValueError: If all sources fail
+        requests.exceptions.RequestException: If primary fails and fallback disabled
+        ValueError: If both primary and fallback fail
     """
-    # Tier 1: Bitcoin Core RPC (primary)
+    primary_url = config["MEMPOOL_API_URL"]
+    fallback_enabled = config.get("MEMPOOL_FALLBACK_ENABLED", False)
+    fallback_url = config.get("MEMPOOL_FALLBACK_URL", "https://mempool.space")
+
+    # Tier 1: Primary API (self-hosted mempool.space)
     try:
-        return _fetch_from_bitcoin_core(bitcoin_datadir)
+        return _fetch_from_mempool_local(primary_url)
+    except requests.exceptions.RequestException as e:
+        logging.warning(f"Tier 1 failed ({primary_url}): {e}")
+
+        # Tier 2: Fallback (only if enabled)
+        if fallback_enabled:
+            logging.warning(f"Attempting Tier 2: Fallback API ({fallback_url})")
+            try:
+                return _fetch_from_mempool_public(fallback_url)
+            except requests.exceptions.RequestException as e_fallback:
+                logging.warning(f"Tier 2 failed ({fallback_url}): {e_fallback}")
+        else:
+            logging.info("Tier 2 (fallback) disabled for privacy")
+
+        # Tier 3: Bitcoin Core RPC (ultimate fallback - always enabled)
+        logging.warning("Attempting Tier 3: Bitcoin Core RPC direct")
+        try:
+            bitcoin_datadir = config.get(
+                "BITCOIN_DATADIR", os.path.expanduser("~/.bitcoin")
+            )
+            return _fetch_from_bitcoin_core(bitcoin_datadir)
+        except Exception as e_rpc:
+            logging.error(f"Tier 3 failed (Bitcoin Core RPC): {e_rpc}")
+            raise ValueError(
+                f"All 3 tiers failed:\n"
+                f"  Tier 1 (mempool local): {primary_url}\n"
+                f"  Tier 2 (mempool public): {fallback_url if fallback_enabled else 'disabled'}\n"
+                f"  Tier 3 (Bitcoin Core RPC): {bitcoin_datadir}\n"
+                "Check network connectivity, mempool-stack, and Bitcoin Core status."
+            )
     except Exception as e:
-        logging.warning(f"[Tier 1] Bitcoin Core failed: {e}")
-
-    # Tier 2: mempool.space local (secondary)
-    try:
-        return _fetch_from_mempool_local()
-    except Exception as e:
-        logging.warning(f"[Tier 2] Mempool local failed: {e}")
-
-    # Tier 3: mempool.space public API (last resort)
-    try:
-        return _fetch_from_mempool_public()
-    except Exception as e:
-        logging.error(f"[Tier 3] Mempool public failed: {e}")
-
-    # All sources failed
-    raise ValueError(
-        "All transaction sources unavailable. "
-        "Check Bitcoin Core, local mempool, and network connectivity."
-    )
+        # Non-network errors (ValueError, etc.) - no fallback
+        logging.error(f"Primary API failed with non-network error: {e}")
+        raise
 
 
-def calculate_utxoracle_price(bitcoin_datadir: str) -> Dict:
+def calculate_utxoracle_price(config: Dict) -> Dict:
     """
     T040: Calculate BTC/USD price using UTXOracle algorithm.
 
+    Updated for Phase 9: Uses mempool.space API instead of Bitcoin Core RPC.
+
     Args:
-        bitcoin_datadir: Path to Bitcoin data directory for RPC
+        config: Configuration dict with MEMPOOL_API_URL and fallback settings
 
     Returns:
         dict: {
@@ -411,8 +475,8 @@ def calculate_utxoracle_price(bitcoin_datadir: str) -> Dict:
         }
     """
     try:
-        # Fetch transactions from Bitcoin Core
-        transactions = fetch_bitcoin_transactions(bitcoin_datadir)
+        # Fetch transactions from mempool.space API (Phase 9: Soluzione 3c)
+        transactions = fetch_bitcoin_transactions(config)
 
         # Calculate price using library
         calc = UTXOracleCalculator()
@@ -1009,8 +1073,8 @@ def main():
             lambda: fetch_mempool_price(config["MEMPOOL_API_URL"])
         )
 
-        # Step 2: Calculate UTXOracle price (T040)
-        utx_result = calculate_utxoracle_price(config["BITCOIN_DATADIR"])
+        # Step 2: Calculate UTXOracle price (T040 - Phase 9: uses mempool.space API)
+        utx_result = calculate_utxoracle_price(config)
 
         # Step 3: Compare prices (T041)
         comparison = compare_prices(utx_result["price_usd"], mempool_price)
