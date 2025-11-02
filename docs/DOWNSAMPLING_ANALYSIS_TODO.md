@@ -2,33 +2,34 @@
 
 **Context**: UTXOracle.py usa un filtro dinamico per ridurre ~100k intraday prices → ~24k punti per HTML visualization. Vogliamo riutilizzare questa logica per serie storiche 2023-2025.
 
-**Status**: 📋 PLANNING PHASE
+**Status**: 📐 DESIGN COMPLETE (Phase 2)
 **Created**: Nov 2, 2025
+**Updated**: Nov 2, 2025
 **Priority**: MEDIUM (future feature, not blocking)
 
 ---
 
-## Phase 1: Reverse Engineering - Capire il Downsampling Attuale ⏳
+## Phase 1: Reverse Engineering - Capire il Downsampling Attuale ✅
 
 ### 1.1 Analisi Algoritmo Corrente
-- [ ] **T201**: Analizzare UTXOracle.py linee 1351-1407 (ax_range calculation + filtering)
+- [X] **T201**: Analizzare UTXOracle.py linee 1351-1407 (ax_range calculation + filtering)
   - Capire formula: `ax_range = 0.05 + (dev_pct - 0.17) * map_dev_axr`
   - Trovare valore `map_dev_axr`
   - Range: 5% min, 20% max
 
-- [ ] **T202**: Quantificare riduzione dati su esempi reali
+- [X] **T202**: Quantificare riduzione dati su esempi reali
   - Contare `output_prices` totali (pre-filtering)
   - Contare `prices` array (post-filtering)
   - Calcolare % riduzione per 5 date diverse
   - Formula: `reduction_pct = (1 - filtered/total) * 100`
 
-- [ ] **T203**: Analizzare distribuzione temporale
+- [X] **T203**: Analizzare distribuzione temporale
   - I punti sono uniformemente distribuiti nel tempo?
   - O sono concentrati dove c'è più volatilità?
   - Verificare con `heights_smooth` e `timestamps` arrays
 
 ### 1.2 Misurazioni Concrete
-- [ ] **T204**: Script per misurare downsampling esistente
+- [X] **T204**: Script per misurare downsampling esistente
   ```python
   # Script: scripts/measure_downsampling.py
   # Input: Una data (es: 2025-10-24)
@@ -39,7 +40,7 @@
   #   - Price range: $105k-$116k
   ```
 
-- [ ] **T205**: Confronta con date diverse (alta/bassa volatilità)
+- [X] **T205**: Confronta con date diverse (alta/bassa volatilità)
   - Bassa volatilità: ax_range ~ 5% → riduzione ~20%
   - Alta volatilità: ax_range ~ 20% → riduzione ~60%
 
