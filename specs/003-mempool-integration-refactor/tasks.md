@@ -305,7 +305,12 @@
 
 - [X] T089 [Cleanup] Ran API test suite: **14/14 tests passed** (`pytest tests/test_api.py -v`)
 - [X] T090 [Cleanup] CLI backward compatibility verified (library tests pass, Bitcoin Core unavailable for full test)
-- [ ] T091 [Cleanup] Cron job reliability ✅ READY (infrastructure synced, cron installed)
+- [X] T091 [Cleanup] Cron job reliability ✅ COMPLETE (Nov 2, 2025)
+  - ✅ Cron installed: `/etc/cron.d/utxoracle-analysis`
+  - ✅ Schedule: Every 10 minutes (`*/10 * * * *`)
+  - ✅ Tested manually: Script runs successfully
+  - ✅ Log file created: `/media/sam/2TB-NVMe/prod/apps/utxoracle/logs/daily_analysis.log`
+  - NOTE: Current blocks often <1000 tx, so price calculation skipped (by design)
 - [ ] T092 [Cleanup] Systemd service resilience ✅ READY (service enabled)
 - [ ] T093 [Cleanup] Server reboot test ✅ READY (can be tested now)
 - [X] T094 [Cleanup] Performance benchmarks: Health 56ms, Latest price 64ms (**Target: <50ms - ✅ Achieved**)
@@ -313,7 +318,12 @@
 ### Production Readiness
 
 - [X] T095 [Cleanup] Created DuckDB backup script: `scripts/backup_duckdb.sh` (daily backups, 30-day retention)
-- [ ] T096 [Cleanup] Log rotation setup ✅ READY (can be configured now)
+- [X] T096 [Cleanup] Log rotation setup ✅ COMPLETE (Nov 2, 2025)
+  - ✅ Config created: `/media/sam/2TB-NVMe/prod/apps/utxoracle/config/logrotate.d/utxoracle`
+  - ✅ Installed: `sudo ln -sf ... /etc/logrotate.d/utxoracle`
+  - ✅ Rotation: Daily, 30 days retention, compressed
+  - ✅ Files: daily_analysis.log, backup.log, health_check.log, api.log
+  - ✅ Tested: `sudo logrotate -d /etc/logrotate.d/utxoracle`
 - [X] T097 [Cleanup] Created monitoring script: `scripts/health_check.sh` (checks Docker, API, cron, DuckDB)
 - [⏸️] T098 [Cleanup] Disaster recovery test (deferred to production deployment)
 - [X] T099 [Cleanup] Created operational runbook: `OPERATIONAL_RUNBOOK.md` (start/stop, common issues, escalation)
