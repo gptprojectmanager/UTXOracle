@@ -392,9 +392,16 @@ class UTXOracleCalculator:
             avg_score = total_score / len(range(min_slide, max_slide))
             a1 = best_slide_score - avg_score
             a2 = abs(neighbor_score - avg_score)
-            w1 = a1 / (a1 + a2)
-            w2 = a2 / (a1 + a2)
-            price_usd = w1 * btc_in_usd_best + w2 * btc_in_usd_2nd
+
+            # BUGFIX: Handle edge case when a1 + a2 == 0 (uniform scores)
+            # This happens with very small datasets or uniform histograms
+            if a1 + a2 == 0:
+                # Use simple average when scores are identical
+                price_usd = (btc_in_usd_best + btc_in_usd_2nd) / 2
+            else:
+                w1 = a1 / (a1 + a2)
+                w2 = a2 / (a1 + a2)
+                price_usd = w1 * btc_in_usd_best + w2 * btc_in_usd_2nd
 
         return {
             "price_usd": price_usd,

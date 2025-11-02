@@ -201,9 +201,6 @@ class TestPydanticMigrationRegression:
         assert "confidence" in result_without
         assert "tx_count" in result_without
 
-    @pytest.mark.skip(
-        reason="Found division by zero bug with small dataset - needs separate investigation"
-    )
     def test_diagnostics_values_unchanged(self):
         """
         Filtering diagnostics match v1 exactly.
