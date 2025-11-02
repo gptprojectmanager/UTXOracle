@@ -11,7 +11,7 @@ Tasks: T058-T065
 
 import os
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import Optional, List, Dict
 from pathlib import Path
 
@@ -118,7 +118,7 @@ class PriceEntry(BaseModel):
     utxoracle_price: Optional[float] = None
     mempool_price: Optional[float] = None
     confidence: float
-    tx_count: int
+    tx_count: Optional[int] = None
     diff_amount: Optional[float] = None
     diff_percent: Optional[float] = None
     is_valid: bool
@@ -190,10 +190,10 @@ async def get_latest_price():
 
     try:
         result = conn.execute("""
-            SELECT timestamp, utxoracle_price, mempool_price, confidence,
-                   tx_count, diff_amount, diff_percent, is_valid
-            FROM prices
-            ORDER BY timestamp DESC
+            SELECT date AS timestamp, utxoracle_price, exchange_price AS mempool_price, confidence,
+                   tx_count, price_difference AS diff_amount, avg_pct_diff AS diff_percent, is_valid
+            FROM price_analysis
+            ORDER BY date DESC
             LIMIT 1
         """).fetchone()
 
@@ -216,7 +216,7 @@ async def get_latest_price():
         data = row_to_dict(result, columns)
 
         # Convert timestamp to ISO format string
-        if isinstance(data["timestamp"], datetime):
+        if isinstance(data["timestamp"], (datetime, date)):
             data["timestamp"] = data["timestamp"].isoformat()
 
         return PriceEntry(**data)
@@ -256,11 +256,11 @@ async def get_historical_prices(
 
         result = conn.execute(
             """
-            SELECT timestamp, utxoracle_price, mempool_price, confidence,
-                   tx_count, diff_amount, diff_percent, is_valid
-            FROM prices
-            WHERE timestamp >= ?
-            ORDER BY timestamp ASC
+            SELECT date AS timestamp, utxoracle_price, exchange_price AS mempool_price, confidence,
+                   tx_count, price_difference AS diff_amount, avg_pct_diff AS diff_percent, is_valid
+            FROM price_analysis
+            WHERE date >= ?
+            ORDER BY date ASC
         """,
             [cutoff],
         ).fetchall()
@@ -280,7 +280,7 @@ async def get_historical_prices(
         for row in result:
             entry = row_to_dict(row, columns)
             # Convert timestamp to ISO format string
-            if isinstance(entry["timestamp"], datetime):
+            if isinstance(entry["timestamp"], (datetime, date)):
                 entry["timestamp"] = entry["timestamp"].isoformat()
             data.append(entry)
 
@@ -319,14 +319,14 @@ async def get_comparison_stats(
         result = conn.execute(
             """
             SELECT
-                AVG(diff_amount) as avg_diff,
-                MAX(diff_amount) as max_diff,
-                MIN(diff_amount) as min_diff,
-                AVG(diff_percent) as avg_diff_percent,
+                AVG(price_difference) as avg_diff,
+                MAX(price_difference) as max_diff,
+                MIN(price_difference) as min_diff,
+                AVG(avg_pct_diff) as avg_diff_percent,
                 COUNT(*) as total_entries,
                 SUM(CASE WHEN is_valid THEN 1 ELSE 0 END) as valid_entries
-            FROM prices
-            WHERE timestamp >= ?
+            FROM price_analysis
+            WHERE date >= ?
         """,
             [cutoff],
         ).fetchone()
@@ -392,8 +392,8 @@ async def health_check():
             )
             SELECT dr.expected_date::VARCHAR
             FROM date_range dr
-            LEFT JOIN prices p ON DATE(p.timestamp) = dr.expected_date
-            WHERE p.timestamp IS NULL
+            LEFT JOIN price_analysis p ON p.date = dr.expected_date
+            WHERE p.date IS NULL
             ORDER BY dr.expected_date DESC
             LIMIT 10
         """
