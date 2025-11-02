@@ -1,279 +1,236 @@
-# Next Session: Phase 9 Testing & Remaining Tasks
+# Next Session: Phase 10 - Mempool.space Full API Resolution
 
-**Date**: Nov 2, 2025
-**Status**: Phase 9 implementation COMPLETE - Ready for testing
-**Commit**: `6a97fb6` - feat: Phase 9 - 3-Tier mempool.space API integration
-
----
-
-## 🎯 What Was Completed
-
-### Phase 9: 3-Tier Architecture Implementation ✅
-
-**Architecture**:
-```
-Tier 1: mempool.space local (http://localhost:8999) - Primary
-    ↓ (if fails)
-Tier 2: mempool.space public (https://mempool.space) - Opt-in fallback
-    ↓ (if fails)
-Tier 3: Bitcoin Core RPC direct (localhost:8332) - Ultimate fallback
-```
-
-**Key Changes**:
-1. ✅ `scripts/daily_analysis.py`:
-   - 3-tier cascade in `fetch_bitcoin_transactions()`
-   - `_convert_satoshi_to_btc()` for API compatibility
-   - Updated `calculate_utxoracle_price()` to use config
-   - Config options: `MEMPOOL_FALLBACK_ENABLED`, `MEMPOOL_FALLBACK_URL`
-
-2. ✅ `.env` configuration:
-   ```bash
-   MEMPOOL_API_URL=http://localhost:8999
-   MEMPOOL_FALLBACK_ENABLED=false  # Privacy-first
-   MEMPOOL_FALLBACK_URL=https://mempool.space
-   BITCOIN_DATADIR=/home/sam/.bitcoin
-   ```
-
-3. ✅ Documentation updated:
-   - CLAUDE.md: Layer 4 section
-   - tasks.md: T124-T127, T132-T133 marked complete
-
-**Critical Discovery**:
-- ⚠️ mempool.space API returns **satoshi**, but UTXOracle_library expects **BTC**
-- ✅ Fix: `_convert_satoshi_to_btc()` divides by 1e8
-- ✅ Bitcoin Core RPC already returns BTC (no conversion needed)
+**Date**: Nov 3+, 2025
+**Status**: Phase 9 testing complete, API working, Tier 3 operational
+**Previous Session**: Nov 2, 2025 (22:27-22:47 WET)
+**Commits**:
+- `d3e9d7e` - API database schema alignment + Phase 9 testing complete
+- `354b899` - mempool.space API investigation + T091, T096 complete
 
 ---
 
-## 📋 Next Session TODO
+## 🎯 Session Goals
 
-### Priority 1: Test Phase 9 Implementation
+### Primary Objective: Fix Tier 1 (Local Mempool.space API)
 
-**T128**: Test Tier 1 (mempool.space local)
+**Problem**: Self-hosted mempool.space backend missing `/api/blocks/*` endpoints
+**Impact**: System always uses Tier 3 (Bitcoin Core RPC) instead of Tier 1
+**Documentation**: See `MEMPOOL_API_ISSUE.md` for full analysis
+
+**What Was Done**:
+- ✅ Identified root cause: Docker network mismatch (fixed)
+- ✅ Fixed ESPLORA_REST_API_URL: `http://192.168.1.111:3001`
+- ✅ electrs connection working (no more ECONNREFUSED)
+- ❌ API endpoints still unavailable (backend limitation, not network issue)
+
+**Next Steps**:
+1. **Investigate** (T134): Research mempool.space versions/builds
+2. **Test** (T135): Try alternative configurations
+3. **Decide**: Fix, Accept, or Enable Tier 2 public fallback
+
+---
+
+## 📋 Priority Tasks for Next Session
+
+### Phase 10: Tier 1 Resolution
+
+**T134** [Investigation] Research mempool.space backend API versions ⏱️ 30 min
 ```bash
-# 1. Verify stack is running
-docker ps | grep mempool
+# 1. Check current version
+docker exec mempool-api cat package.json | grep version
 
-# 2. Test API endpoints
-curl http://localhost:8999/api/blocks/tip/hash
-curl http://localhost:8999/api/block/<hash>/txs/0 | head -50
+# 2. Compare with public mempool.space
+curl -s https://mempool.space/api/blocks/tip/hash  # ← Works
+curl -s http://localhost:8999/api/blocks/tip/hash  # ← 404
 
-# 3. Run daily_analysis.py with verbose logging
-python3 scripts/daily_analysis.py --dry-run --verbose
+# 3. Check GitHub releases
+# https://github.com/mempool/mempool/releases
+# Look for API endpoint documentation
 
-# 4. Verify logs show:
-#    "[Primary API] Fetching block..."
-#    "[Primary API] ✅ Fetched XXXX transactions"
-
-# 5. Check DuckDB has valid data
-duckdb /media/sam/2TB-NVMe/prod/apps/utxoracle/data/utxoracle_cache.db \
-  "SELECT * FROM prices ORDER BY timestamp DESC LIMIT 3"
+# 4. Check if frontend required
+docker ps | grep mempool-web  # Frontend is running
+# Test: http://localhost:8080 (should show explorer)
 ```
 
-**Expected**: Price is NOT $100k mock, but real calculated price
-
----
-
-**T129**: Test Tier 2 (fallback to public API)
+**T135** [Investigation] Test alternative configurations ⏱️ 45 min
 ```bash
-# 1. Enable fallback in .env
-echo "MEMPOOL_FALLBACK_ENABLED=true" >> .env
+# Try different MEMPOOL_BACKEND modes
+cd /media/sam/2TB-NVMe/prod/apps/mempool-stack
 
-# 2. Simulate Tier 1 failure
-docker stop mempool-api
+# Current: MEMPOOL_BACKEND=esplora
+# Test: MEMPOOL_BACKEND=electrum
+# Test: MEMPOOL_BACKEND=none
 
-# 3. Run daily_analysis.py
-python3 scripts/daily_analysis.py --dry-run --verbose
+# Check if frontend serves these endpoints
+curl http://localhost:8080/api/blocks/tip/hash
 
-# 4. Verify logs show:
-#    "[WARNING] Tier 1 failed (http://localhost:8999): ..."
-#    "[WARNING] Attempting Tier 2: Fallback API (https://mempool.space)"
-#    "[Fallback API] ✅ Fetched XXXX transactions"
-
-# 5. Restart container
-docker start mempool-api
+# Document which config enables /api/blocks/* endpoints
 ```
 
-**Expected**: Script uses public API, price still calculated correctly
-
----
-
-**T130**: Test Tier 3 (Bitcoin Core RPC ultimate fallback)
+**T136** [Infrastructure] Upgrade if needed ⏱️ 1 hour
 ```bash
-# 1. Disable fallback in .env
-echo "MEMPOOL_FALLBACK_ENABLED=false" >> .env
+# Only if T134-T135 identify solution
 
-# 2. Simulate Tier 1+2 failure
-docker stop mempool-api
+# Backup current config
+cp docker-compose.yml docker-compose.yml.backup
 
-# 3. Run daily_analysis.py
-python3 scripts/daily_analysis.py --dry-run --verbose
-
-# 4. Verify logs show:
-#    "[WARNING] Tier 1 failed..."
-#    "[INFO] Tier 2 (fallback) disabled for privacy"
-#    "[WARNING] Attempting Tier 3: Bitcoin Core RPC direct"
-#    "[Bitcoin Core] ✅ Fetched XXXX transactions"
-
-# 5. Restart container
-docker start mempool-api
-```
-
-**Expected**: Script uses Bitcoin Core RPC, price calculated correctly
-
----
-
-**T131**: Validate DuckDB Data Consistency
-```bash
-# 1. Run daily_analysis.py normally
-python3 scripts/daily_analysis.py --verbose
-
-# 2. Check recent entries
-duckdb /media/sam/2TB-NVMe/prod/apps/utxoracle/data/utxoracle_cache.db \
-  "SELECT timestamp, utxoracle_price, confidence, is_valid
-   FROM prices
-   ORDER BY timestamp DESC
-   LIMIT 5"
-
-# 3. Verify:
-#    - utxoracle_price is NOT $100,000 (mock)
-#    - utxoracle_price in range [$10k, $500k]
-#    - confidence >= 0.3
-#    - is_valid = TRUE
-```
-
----
-
-### Priority 2: Remaining Phase 4-6 Tasks
-
-**Service Activation** (T069-T071):
-```bash
-# Start API service
-sudo systemctl start utxoracle-api
-sudo systemctl status utxoracle-api
-
+# Update image versions
 # Test endpoints
-curl http://localhost:8000/api/prices/latest | jq
-curl http://localhost:8000/health | jq
-```
-
-**Cron Verification** (T091):
-```bash
-# Wait 10 minutes, check logs
-tail -f /media/sam/2TB-NVMe/prod/apps/utxoracle/logs/daily_analysis.log
-
-# Verify new DuckDB entries
-duckdb ... "SELECT COUNT(*) FROM prices WHERE timestamp > NOW() - INTERVAL 1 HOUR"
-```
-
-**Log Rotation** (T096):
-```bash
-# Create logrotate config
-sudo nano /etc/logrotate.d/utxoracle
-
-# Test rotation
-sudo logrotate -f /etc/logrotate.d/utxoracle
-```
-
-**Reboot Test** (T093, T110):
-```bash
-# ONLY during maintenance window
-sudo reboot
-
-# After reboot, verify:
-docker ps | grep mempool  # All healthy
-sudo systemctl status utxoracle-api  # Active
-crontab -l | grep daily_analysis  # Installed
+# Rollback if issues
 ```
 
 ---
 
-### Priority 3: Integration Testing (T101-T106)
+## 🔄 Alternative Path: Enable Tier 2 (Public API)
 
-- T101: Load test (10k rows, <50ms query)
-- T102: Failure recovery (mempool-stack restart)
-- T103: Price divergence (>5% logging)
-- T104: Memory leak (24h runtime)
-- T105: Disk usage check
-- T106: Network bandwidth test
+If Tier 1 fix proves complex, consider enabling Tier 2 for resilience:
 
----
+**T139** [Config] Enable public mempool.space fallback ⏱️ 15 min
+```bash
+# Edit .env
+echo "MEMPOOL_FALLBACK_ENABLED=true" >> /media/sam/1TB/UTXOracle/.env
 
-## 🚨 Known Issues / Blockers
+# Test cascade
+python3 scripts/daily_analysis.py --dry-run --verbose
 
-**None** - All implementation complete, infrastructure operational
+# Expected flow:
+# Tier 1: Fail (404) → Tier 2: Success (public API) → Skip Tier 3
 
-**Potential Issues to Watch**:
-1. If mempool-api container is down:
-   - Tier 1 will fail
-   - Tier 3 (Bitcoin Core RPC) should work
-   - Check logs to see which tier was used
+# Monitor for 1 hour
+# Check logs every 10 min
+```
 
-2. If Bitcoin Core is not synced:
-   - Tier 3 will fail
-   - System will error (all tiers exhausted)
-
-3. If satoshi conversion is not working:
-   - Prices will be 100M times too large
-   - Look for prices like $11,000,000,000,000
-   - Fix: Check `_convert_satoshi_to_btc()` is called
+**Trade-offs**:
+- ✅ 99.9% uptime (public API very reliable)
+- ✅ No maintenance of self-hosted API
+- ❌ External API calls (privacy consideration)
+- ❌ Rate limits possible (unlikely for 6 calls/hour)
 
 ---
 
-## 📊 Current System Status (as of Nov 2, 2025)
+## 📊 Current System Status (as of Nov 2, 22:47)
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Bitcoin Core | ✅ Synced | 921,947 blocks (100%) |
-| mempool-stack | ✅ Operational | Up 2+ days, all healthy |
-| electrs | ✅ Indexed | ~38GB on NVMe |
-| DuckDB | ✅ Ready | 688 days historical data |
-| FastAPI | ⏸️ Not started | Service enabled, not started yet (T069) |
-| Cron Job | ✅ Installed | Every 10 min, not tested yet (T091) |
-| Phase 9 Code | ✅ Complete | 3-tier implemented, needs testing |
+| **Bitcoin Core** | ✅ Synced | 921,972 blocks |
+| **electrs** | ✅ Working | HTTP API on 3001 |
+| **mempool-api** | ✅ Connected | Fixed ESPLORA_REST_API_URL |
+| **mempool-web** | ✅ Running | Port 8080 explorer |
+| **FastAPI** | ✅ Running | All endpoints working |
+| **Cron Job** | ✅ Active | Every 10 min |
+| **Log Rotation** | ✅ Setup | 30 days retention |
+| **DuckDB** | ✅ Healthy | 688 days data |
+| **Tier 1** | ❌ API Missing | Falls back to Tier 3 |
+| **Tier 2** | ✅ Ready | Disabled (privacy-first) |
+| **Tier 3** | ✅ Working | Bitcoin Core RPC active |
 
 ---
 
-## 🔧 Quick Reference
+## 🐛 Known Issues
 
-**Start mempool-stack**:
+### Issue #1: Tier 1 API Endpoints Unavailable
+
+**Symptom**:
 ```bash
-cd /media/sam/2TB-NVMe/prod/apps/mempool-stack
-docker compose up -d
+curl http://localhost:8999/api/blocks/tip/hash
+# → 404 Not Found
 ```
 
-**Check logs**:
-```bash
-docker compose logs -f mempool-api
-tail -f /media/sam/2TB-NVMe/prod/apps/utxoracle/logs/daily_analysis.log
-```
+**Root Cause**: Self-hosted backend doesn't expose `/api/blocks/*` routes
 
-**Manual run**:
-```bash
-cd /media/sam/1TB/UTXOracle
-python3 scripts/daily_analysis.py --dry-run --verbose
-```
+**Workaround**: System uses Tier 3 (Bitcoin Core RPC)
 
-**Query DuckDB**:
-```bash
-duckdb /media/sam/2TB-NVMe/prod/apps/utxoracle/data/utxoracle_cache.db
-> SELECT * FROM prices ORDER BY timestamp DESC LIMIT 5;
-> .quit
-```
+**Fix Priority**: 🔥 HIGH - Next session
 
 ---
 
-## 📚 Documentation References
+### Issue #2: Blocks Often <1000 Transactions
 
-- **Architecture**: `CLAUDE.md` - Layer 4 section
-- **Tasks**: `specs/003-mempool-integration-refactor/tasks.md` - Phase 9
-- **Config**: `.env` (not committed) - MEMPOOL_* variables
-- **Production Status**: `specs/003-mempool-integration-refactor/PRODUCTION_READY_REPORT.md`
+**Symptom**:
+```
+ERROR: Calculated from only 223 tx (<1000). Data quality insufficient.
+```
+
+**Root Cause**: Recent blocks sometimes have <1000 tx (normal Bitcoin activity)
+
+**Impact**: Price calculation skipped for small blocks
+
+**Fix**: None needed - this is intentional data quality check
+
+**Workaround**: Wait for larger blocks or use historical data
 
 ---
 
-**Session End**: Nov 2, 2025
-**Next Session Priority**: Test 3-tier architecture (T128-T131)
-**Estimated Time**: 30-45 minutes for testing
+## 📝 Session Checklist
+
+**Before Starting**:
+- [ ] Read `MEMPOOL_API_ISSUE.md` (full context)
+- [ ] Check mempool-stack status: `docker ps | grep mempool`
+- [ ] Verify current behavior: `python3 scripts/daily_analysis.py --dry-run --verbose`
+
+**Investigation Phase** (T134-T135):
+- [ ] Check mempool.space GitHub for API documentation
+- [ ] Compare self-hosted vs public API versions
+- [ ] Test alternative MEMPOOL_BACKEND configs
+- [ ] Document findings in MEMPOOL_API_ISSUE.md
+
+**Decision Point**:
+- [ ] Fix Tier 1 (if simple) → Continue to T136-T138
+- [ ] Accept limitation → Enable Tier 2 (T139) + document
+- [ ] Defer if complex → Focus on Phase 6 validation tasks
+
+**Testing**:
+- [ ] Verify chosen solution works
+- [ ] Monitor cron job for 1 hour
+- [ ] Check DuckDB for new entries
+- [ ] Update tasks.md completion status
+
+**Cleanup**:
+- [ ] Commit changes with clear message
+- [ ] Update NEXT_SESSION_NOTES.md with outcomes
+- [ ] Document decision in MEMPOOL_API_ISSUE.md
+
+---
+
+## 🎓 Key Learnings from Previous Session
+
+1. **Docker Networking**: Host network mode ≠ bridge network localhost
+2. **Mempool.space Architecture**: Backend ≠ Frontend, API endpoints vary by version
+3. **3-Tier Cascade**: System resilient even when Tier 1 unavailable
+4. **Data Quality**: Block size validation (<1000 tx) is working as designed
+5. **API Schema Mismatch**: Always verify table/column names match actual database
+
+---
+
+## 🔗 References
+
+- **Architecture Doc**: `CLAUDE.md` - Layer 4 section
+- **Investigation Doc**: `MEMPOOL_API_ISSUE.md` - Full analysis
+- **Tasks**: `tasks.md` - Phase 10 (T134-T140)
+- **Config**: `/media/sam/2TB-NVMe/prod/apps/mempool-stack/docker-compose.yml`
+- **Logs**: `/media/sam/2TB-NVMe/prod/apps/utxoracle/logs/daily_analysis.log`
+
+---
+
+## 🚀 Success Criteria
+
+**Minimum** (Accept limitation):
+- ✅ Document decision in MEMPOOL_API_ISSUE.md
+- ✅ Optionally enable Tier 2 for resilience
+- ✅ System continues working with Tier 3
+
+**Optimal** (Fix Tier 1):
+- ✅ Tier 1 operational: `/api/blocks/*` endpoints working
+- ✅ Logs show: `"[Primary API] ✅ Fetched XXXX transactions"`
+- ✅ No Tier 3 fallback unless data quality issue
+- ✅ 3-tier cascade fully tested
+
+---
+
+**Session Priority**: 🔥 **HIGH** - Complete 3-tier architecture or document accepted limitation
+
+**Estimated Time**: 2-3 hours (investigation + implementation OR decision + documentation)
+
+**Fallback Plan**: If >2 hours without solution → Enable Tier 2, document limitation, move to Phase 6 validation
 
 Good luck! 🚀

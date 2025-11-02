@@ -1352,3 +1352,110 @@ git checkout -b library-v2
 - ✅ 99.9% uptime guarantee with 3-tier cascade
 
 **Estimated Completion**: Nov 2, 2025 (45 minutes - extended for 3-tier)
+
+---
+
+## Phase 10: Mempool.space Full API Resolution 🔧
+
+**Purpose**: Resolve Tier 1 (local mempool.space) transaction fetching limitation
+
+**Time Estimate**: 2-3 hours
+
+**Status**: 🔴 TODO - Priority for next session (Nov 3+, 2025)
+
+**Context**: 
+- Current Tier 1 fails due to missing `/api/blocks/*` endpoints in self-hosted mempool.space backend
+- Infrastructure working (electrs connection fixed)
+- System functional with Tier 3 fallback, but Tier 1 should be operational for optimal performance
+- See: `specs/003-mempool-integration-refactor/MEMPOOL_API_ISSUE.md` for full analysis
+
+---
+
+### Investigation Tasks
+
+- [ ] T134 [Investigation] Research mempool.space backend API versions
+  - Check mempool.space GitHub releases for API endpoint differences
+  - Compare self-hosted backend version vs public mempool.space
+  - Identify which version/build includes `/api/blocks/*` endpoints
+  - Check if frontend component required for these endpoints
+  - Document findings in MEMPOOL_API_ISSUE.md
+
+- [ ] T135 [Investigation] Test alternative mempool.space configurations
+  - Try different MEMPOOL_BACKEND settings (esplora vs electrum vs none)
+  - Test with/without frontend component running
+  - Check if additional environment variables needed for REST API
+  - Test public mempool.space API endpoints to confirm available routes
+  - Document successful configuration
+
+### Implementation Tasks
+
+- [ ] T136 [Infrastructure] Upgrade mempool.space stack (if needed)
+  - Backup current docker-compose.yml configuration
+  - Update to version with full API support
+  - Test block transaction endpoints after upgrade
+  - Verify no regressions in price API
+
+- [ ] T137 [Integration] Update daily_analysis.py Tier 1 logic
+  - Modify `_fetch_from_mempool_local()` if API format changes
+  - Test Tier 1 → Tier 2 → Tier 3 cascade with working Tier 1
+  - Verify satoshi→BTC conversion still working
+  - Update logging to show Tier 1 success
+
+- [ ] T138 [Validation] End-to-end Tier 1 testing
+  - Run: `python3 scripts/daily_analysis.py --dry-run --verbose`
+  - Expected: `"[Primary API] ✅ Fetched XXXX transactions"`
+  - Verify: No fallback to Tier 3 unless block has <1000 tx
+  - Monitor: 10 minutes of cron runs to ensure stability
+
+### Resilience Enhancement
+
+- [ ] T139 [Config] Enable Tier 2 (public mempool.space) for production resilience
+  - Update `.env`: `MEMPOOL_FALLBACK_ENABLED=true`
+  - Document trade-off: Privacy vs resilience
+  - Test fallback: Stop local mempool-api → Verify Tier 2 activates
+  - Recommendation: Enable for production, disable for privacy-conscious deployments
+
+- [ ] T140 [Monitoring] Create Tier usage dashboard
+  - Add DuckDB column: `tier_used` (1, 2, or 3)
+  - Update `daily_analysis.py` to log which tier fetched data
+  - Create `/api/stats/tier-usage?days=30` endpoint
+  - Visualize tier distribution in frontend
+
+---
+
+## Success Criteria for Phase 10
+
+- ✅ Tier 1 (local mempool.space) operational for transaction fetching
+- ✅ `/api/blocks/tip/hash` returns valid block hash
+- ✅ `_fetch_from_mempool_local()` successfully fetches ≥1000 transactions
+- ✅ Logs show: `"[Primary API] ✅ Fetched XXXX transactions"` (not Tier 3 fallback)
+- ✅ 3-tier cascade still works: Tier 1 → Tier 2 (if enabled) → Tier 3
+- ✅ Tier 2 (public) enabled for production resilience (optional)
+- ✅ Tier usage monitoring in place
+
+**Priority**: 🔥 HIGH - Completes 3-tier architecture as designed
+
+**Estimated Completion**: Nov 3-4, 2025 (2-3 hours)
+
+---
+
+## Alternative: Accept Current State
+
+**If Phase 10 proves too complex**, document as accepted limitation:
+
+**Pros of current state**:
+- ✅ System 100% functional with Tier 3 (Bitcoin Core RPC)
+- ✅ Tier 2 (public mempool.space) available if enabled
+- ✅ No maintenance burden from self-hosted API
+- ✅ Bitcoin Core RPC more reliable than HTTP API
+
+**Cons**:
+- ❌ Self-hosted mempool.space infrastructure underutilized
+- ❌ Slightly higher load on Bitcoin Core RPC
+- ❌ Tier 1 not operational as designed
+
+**Decision Point**: After T134-T135 investigation, decide:
+1. **Fix Tier 1**: If solution is simple (config change, version upgrade)
+2. **Accept limitation**: If requires significant rework or maintenance burden
+3. **Enable Tier 2**: Use public API as primary fallback instead of Tier 3
+
