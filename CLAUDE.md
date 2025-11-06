@@ -131,11 +131,25 @@ python3 UTXOracle.py -d 2025/10/17 --no-browser
 - `api/main.py` (454 lines) - FastAPI REST API
 
 **Production Configuration** (as of Nov 2, 2025):
-- ✅ Bitcoin Core: **Fully synced** (921,947 blocks, 100% progress)
+- ✅ Bitcoin Core: **Fully synced** (921,947+ blocks, 100% progress)
+  - RPC: `http://localhost:8332` (cookie auth from `~/.bitcoin/.cookie`)
+  - Data directory: `~/.bitcoin/` (mainnet blockchain)
+
 - ✅ Self-hosted mempool.space stack: **Operational** (electrs + backend + frontend)
-- ✅ Local API: `http://localhost:8999/api/v1/prices` (exchange prices)
-- ✅ Frontend: `http://localhost:8080` (mempool explorer)
-- All services healthy and running on `/media/sam/2TB-NVMe/prod/apps/mempool-stack/`
+  - **electrs HTTP API**: `http://localhost:3001` (Tier 1 primary for transactions)
+    - Endpoints: `/blocks/tip/height`, `/blocks/tip/hash`, `/block/{hash}/txids`, `/tx/{txid}`
+    - 38GB index, fully synced, <100ms response time
+  - **mempool.space backend API**: `http://localhost:8999` (exchange prices)
+    - Endpoint: `/api/v1/prices` (returns BTC/USD exchange price)
+  - **mempool.space frontend**: `http://localhost:8080` (block explorer UI)
+  - Docker stack location: `/media/sam/2TB-NVMe/prod/apps/mempool-stack/`
+
+- ✅ **3-Tier Transaction Fetching** (from `scripts/daily_analysis.py`):
+  - **Tier 1 (Primary)**: electrs HTTP API (`http://localhost:3001`) - Direct, fastest
+  - **Tier 2 (Fallback)**: mempool.space public API (disabled by default for privacy)
+  - **Tier 3 (Ultimate)**: Bitcoin Core RPC (always enabled, ultimate fallback)
+
+- ✅ All services healthy and monitored via systemd/Docker
 
 ### Future Architecture Plans
 
@@ -143,6 +157,62 @@ See **MODULAR_ARCHITECTURE.md** for planned Rust-based architecture:
 - Rust port of UTXOracle_library.py (black box replacement)
 - Real-time mempool analysis with WebGL visualization
 - Each module independently replaceable
+
+### Local Infrastructure Quick Reference
+
+**IMPORTANT**: UTXOracle uses **self-hosted infrastructure** (no external API dependencies for transactions).
+
+#### Service Endpoints (Localhost)
+
+| Service | URL | Purpose | Status Check |
+|---------|-----|---------|--------------|
+| **Bitcoin Core RPC** | `http://localhost:8332` | Blockchain data (Tier 3 fallback) | `bitcoin-cli getblockcount` |
+| **electrs HTTP API** | `http://localhost:3001` | Transaction data (Tier 1 primary) | `curl localhost:3001/blocks/tip/height` |
+| **mempool backend** | `http://localhost:8999` | Exchange prices | `curl localhost:8999/api/v1/prices` |
+| **mempool frontend** | `http://localhost:8080` | Block explorer UI | Open in browser |
+
+#### Transaction Fetching Flow (scripts/daily_analysis.py)
+
+```python
+# Tier 1 (PRIMARY): electrs HTTP API (fastest, direct)
+electrs_url = "http://localhost:3001"
+txs = fetch_from_electrs(electrs_url)  # <-- This is what we use 99% of time
+
+# Tier 2 (FALLBACK): mempool.space public API (disabled by default)
+# Only enabled if user explicitly sets MEMPOOL_PUBLIC_API_ENABLED=true
+
+# Tier 3 (ULTIMATE FALLBACK): Bitcoin Core RPC
+# Always available, used if Tier 1 and 2 fail
+txs = fetch_from_bitcoin_core_rpc()
+```
+
+#### Docker Stack Location
+
+```bash
+# mempool.space + electrs Docker Compose stack
+/media/sam/2TB-NVMe/prod/apps/mempool-stack/
+
+# Quick commands:
+cd /media/sam/2TB-NVMe/prod/apps/mempool-stack/
+docker compose ps              # Check services
+docker compose logs -f         # View logs
+docker compose restart         # Restart stack
+```
+
+#### electrs Sync Status
+
+```bash
+# Check if electrs is fully synced
+curl -s localhost:3001/blocks/tip/height
+# Should match Bitcoin Core: bitcoin-cli getblockcount
+
+# Check electrs index size
+du -sh /media/sam/2TB-NVMe/prod/apps/mempool-stack/electrs-data/
+# Expected: ~38GB for mainnet
+
+# View electrs logs
+docker logs -f mempool-electrs
+```
 
 ## Repository Organization
 
