@@ -1225,7 +1225,10 @@ def main():
         whale_signal = None
         if whale_detector:
             try:
-                whale_signal = whale_detector.analyze_latest_block()
+                import asyncio
+
+                # Run async whale detection (optimized with aiohttp)
+                whale_signal = asyncio.run(whale_detector.analyze_latest_block())
                 logging.info(
                     f"🐋 Whale Signal: {whale_signal.direction} "
                     f"(net flow: {whale_signal.net_flow_btc:+.2f} BTC, "
