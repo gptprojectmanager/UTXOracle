@@ -162,16 +162,16 @@
 
 ### Implementation for User Story 3 (GREEN Phase) 🟢
 
-- [ ] T066 [US3] Create `scripts/whale_flow_backtest.py` script with command-line interface
-- [ ] T067 [US3] Implement `--days` argument for backtest duration (default: 7)
-- [ ] T068 [US3] Implement `--start-block` argument for custom block range
-- [ ] T069 [US3] Implement block range calculation: `start_block` to `start_block + (days * 144)`
-- [ ] T070 [US3] Implement loop to call `whale_detector.analyze_block(height)` for each block in range
+- [x] T066 [US3] Create `scripts/whale_flow_backtest.py` script with command-line interface
+- [x] T067 [US3] Implement `--days` argument for backtest duration (default: 7)
+- [x] T068 [US3] Implement `--start-block` argument for custom block range
+- [x] T069 [US3] Implement block range calculation: `start_block` to `start_block + (days * 144)`
+- [x] T070 [US3] Implement loop to call `whale_detector.analyze_block(height)` for each block in range
 - [ ] T071 [US3] Implement DuckDB storage for backtest results: table `backtest_whale_signals`
 - [ ] T072 [US3] Fetch BTC/USD price data for each block from `price_comparisons` table or mempool API
 - [ ] T073 [US3] Calculate price change 24h after each block (lag: 144 blocks)
-- [ ] T074 [US3] Implement correlation calculation: `CORR(whale_net_flow, price_change_24h)`
-- [ ] T075 [US3] Implement false positive rate calculation: % of signals with wrong direction
+- [x] T074 [US3] Implement correlation calculation: `CORR(whale_net_flow, price_change_24h)`
+- [x] T075 [US3] Implement false positive rate calculation: % of signals with wrong direction
 - [ ] T076 [US3] Generate backtest report: `docs/WHALE_FLOW_BACKTEST_REPORT.md` with correlation, false positive rate, charts
 
 **Checkpoint GREEN**: Run `python3 scripts/whale_flow_backtest.py --days 7`, verify correlation >0.6
