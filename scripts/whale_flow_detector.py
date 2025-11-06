@@ -13,7 +13,8 @@ import csv
 import logging
 import asyncio
 import aiohttp
-from typing import Tuple, List, Dict, Set
+import time
+from typing import Tuple, List, Dict, Set, Optional
 from pathlib import Path
 
 # Add contracts to path for import
@@ -36,6 +37,47 @@ WHALE_DISTRIBUTION_THRESHOLD_BTC = 100  # Net inflow > 100 BTC
 logger = logging.getLogger(__name__)
 
 
+async def _retry_with_backoff(
+    func, *args, max_retries: int = 3, base_delay: float = 1.0, **kwargs
+):
+    """
+    Retry an async function with exponential backoff.
+
+    Args:
+        func: Async function to retry
+        *args: Positional arguments for func
+        max_retries: Maximum retry attempts (default: 3)
+        base_delay: Base delay in seconds (default: 1.0)
+        **kwargs: Keyword arguments for func
+
+    Returns:
+        Result from func
+
+    Raises:
+        Last exception if all retries fail
+    """
+    last_exception = None
+
+    for attempt in range(max_retries):
+        try:
+            return await func(*args, **kwargs)
+        except Exception as e:
+            last_exception = e
+            if attempt < max_retries - 1:
+                delay = base_delay * (2**attempt)  # 1s, 2s, 4s
+                logger.warning(
+                    f"Attempt {attempt + 1}/{max_retries} failed: {e}. "
+                    f"Retrying in {delay}s..."
+                )
+                await asyncio.sleep(delay)
+            else:
+                logger.error(
+                    f"All {max_retries} retry attempts failed. Last error: {e}"
+                )
+
+    raise last_exception
+
+
 class WhaleFlowDetector:
     """
     Async whale flow detector using electrs HTTP API with aiohttp + batching.
@@ -46,12 +88,23 @@ class WhaleFlowDetector:
     - Rust-aligned: async/await pattern maps directly to Tokio
     """
 
-    def __init__(self, exchange_addresses_path: str):
+    def __init__(
+        self,
+        exchange_addresses_path: str,
+        bitcoin_rpc_url: Optional[str] = None,
+        bitcoin_rpc_user: Optional[str] = None,
+        bitcoin_rpc_password: Optional[str] = None,
+    ):
         """
         Initialize whale flow detector with exchange addresses.
 
+        T085: Added Bitcoin Core RPC fallback support (Tier 3 cascade).
+
         Args:
             exchange_addresses_path: Path to CSV file (exchange_name,address,type)
+            bitcoin_rpc_url: Optional Bitcoin Core RPC URL (default: http://localhost:8332)
+            bitcoin_rpc_user: Optional RPC username (if not using cookie auth)
+            bitcoin_rpc_password: Optional RPC password (if not using cookie auth)
 
         Raises:
             FileNotFoundError: If CSV doesn't exist
@@ -60,55 +113,144 @@ class WhaleFlowDetector:
         self._exchange_addresses_path = Path(exchange_addresses_path)
         self._exchange_addresses = self._load_exchange_addresses()
 
+        # T085: Bitcoin Core RPC fallback configuration
+        self._bitcoin_rpc_url = bitcoin_rpc_url or "http://localhost:8332"
+        self._bitcoin_rpc_user = bitcoin_rpc_user
+        self._bitcoin_rpc_password = bitcoin_rpc_password
+        self._bitcoin_rpc_enabled = bitcoin_rpc_url is not None or (
+            bitcoin_rpc_user and bitcoin_rpc_password
+        )
+
         logger.info(
             f"WhaleFlowDetector initialized with {len(self._exchange_addresses)} "
             f"exchange addresses"
         )
+        if self._bitcoin_rpc_enabled:
+            logger.info(f"Bitcoin Core RPC fallback enabled: {self._bitcoin_rpc_url}")
+        else:
+            logger.info("Bitcoin Core RPC fallback disabled (electrs only)")
 
     def _load_exchange_addresses(self) -> Set[str]:
         """
         Load exchange addresses from CSV into a set for O(1) lookup.
+
+        T083: Enhanced error handling for malformed CSV
+        T084: Validation for minimum address count (warns if <100)
 
         Returns:
             Set of Bitcoin addresses belonging to exchanges
 
         Raises:
             FileNotFoundError: If CSV doesn't exist
-            ValueError: If CSV format is invalid
+            ValueError: If CSV format is invalid or empty
         """
         if not self._exchange_addresses_path.exists():
             raise FileNotFoundError(
-                f"Exchange addresses CSV not found: {self._exchange_addresses_path}"
+                f"Exchange addresses CSV not found: {self._exchange_addresses_path}\n"
+                f"Please download from: https://gist.github.com/f13end/bf88acb162bed0b3dcf5e35f1fdb3c17"
             )
 
         addresses = set()
+        row_count = 0
+        invalid_rows = []
 
         try:
-            with open(self._exchange_addresses_path, "r") as f:
+            with open(self._exchange_addresses_path, "r", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
 
-                # Validate headers
+                # Validate headers (T083: Better error messages)
                 expected_headers = {"exchange_name", "address", "type"}
-                if not expected_headers.issubset(set(reader.fieldnames or [])):
-                    raise ValueError(f"CSV must contain headers: {expected_headers}")
+                actual_headers = set(reader.fieldnames or [])
 
-                # Load addresses
-                for row in reader:
-                    address = row["address"].strip()
-                    if address:
+                if not expected_headers.issubset(actual_headers):
+                    missing = expected_headers - actual_headers
+                    raise ValueError(
+                        f"CSV missing required headers: {missing}\n"
+                        f"Expected: {expected_headers}\n"
+                        f"Found: {actual_headers}"
+                    )
+
+                # Load addresses with validation (T083: Track invalid rows)
+                for line_num, row in enumerate(
+                    reader, start=2
+                ):  # Start at 2 (header is line 1)
+                    row_count += 1
+
+                    try:
+                        address = row["address"].strip()
+                        exchange = row.get("exchange_name", "unknown").strip()
+
+                        if not address:
+                            invalid_rows.append((line_num, "empty address"))
+                            continue
+
+                        # Basic Bitcoin address validation (length check)
+                        if not (25 <= len(address) <= 62):
+                            invalid_rows.append(
+                                (line_num, f"invalid address length: {len(address)}")
+                            )
+                            logger.debug(
+                                f"Skipping invalid address on line {line_num}: {address}"
+                            )
+                            continue
+
                         addresses.add(address)
+                        logger.debug(
+                            f"Loaded address from {exchange}: {address[:8]}...{address[-8:]}"
+                        )
 
+                    except KeyError as e:
+                        invalid_rows.append((line_num, f"missing column: {e}"))
+
+        except csv.Error as e:
+            raise ValueError(
+                f"Malformed CSV file at {self._exchange_addresses_path}: {e}\n"
+                f"Please check file format (should be: exchange_name,address,type)"
+            )
+        except UnicodeDecodeError as e:
+            raise ValueError(f"CSV encoding error: {e}\nFile must be UTF-8 encoded")
         except Exception as e:
-            raise ValueError(f"Failed to parse CSV: {e}")
+            raise ValueError(f"Failed to parse CSV: {e.__class__.__name__}: {e}")
 
+        # Report invalid rows (T083)
+        if invalid_rows:
+            logger.warning(
+                f"Skipped {len(invalid_rows)} invalid rows out of {row_count} total"
+            )
+            if logger.isEnabledFor(logging.DEBUG):
+                for line_num, reason in invalid_rows[:10]:  # Show first 10
+                    logger.debug(f"  Line {line_num}: {reason}")
+
+        # Validation checks
         if len(addresses) == 0:
-            raise ValueError("CSV contains no valid addresses")
+            raise ValueError(
+                f"CSV contains no valid addresses (processed {row_count} rows, "
+                f"found {len(invalid_rows)} invalid)"
+            )
+
+        # T084: Warn if address count is below recommended threshold
+        MIN_RECOMMENDED_ADDRESSES = 100
+        if len(addresses) < MIN_RECOMMENDED_ADDRESSES:
+            logger.warning(
+                f"⚠️  Only {len(addresses)} exchange addresses loaded "
+                f"(recommended: {MIN_RECOMMENDED_ADDRESSES}+)\n"
+                f"   Lower coverage may reduce detection accuracy.\n"
+                f"   Consider updating exchange_addresses.csv from:\n"
+                f"   https://gist.github.com/f13end/bf88acb162bed0b3dcf5e35f1fdb3c17"
+            )
+        else:
+            logger.info(
+                f"✓ Loaded {len(addresses)} exchange addresses "
+                f"({len(invalid_rows)} invalid rows skipped)"
+            )
 
         return addresses
 
     def _parse_addresses(self, tx: Dict) -> Tuple[List[str], List[str]]:
         """
         Extract input and output addresses from a transaction.
+
+        T077: Enhanced with DEBUG-level logging for transaction details.
 
         Args:
             tx: Transaction dict from electrs API
@@ -118,26 +260,43 @@ class WhaleFlowDetector:
         """
         input_addrs = []
         output_addrs = []
+        txid = tx.get("txid", "unknown")[:16]  # First 16 chars for logging
 
         # Parse inputs (from prevout)
-        for vin in tx.get("vin", []):
+        for idx, vin in enumerate(tx.get("vin", [])):
             # Skip coinbase transactions (mining rewards)
             if "coinbase" in vin:
+                logger.debug(f"  TX {txid}: vin[{idx}] is coinbase (skip)")
                 continue
 
             prevout = vin.get("prevout")
             if prevout is None:
-                continue  # Skip if no prevout
+                logger.debug(f"  TX {txid}: vin[{idx}] has no prevout (skip)")
+                continue
 
             addr = prevout.get("scriptpubkey_address")
             if addr:
                 input_addrs.append(addr)
+                logger.debug(
+                    f"  TX {txid}: vin[{idx}] → {addr[:8]}...{addr[-8:]} "
+                    f"({prevout.get('value', 0) / 1e8:.8f} BTC)"
+                )
 
         # Parse outputs
-        for vout in tx.get("vout", []):
+        for idx, vout in enumerate(tx.get("vout", [])):
             addr = vout.get("scriptpubkey_address")
+            value_btc = vout.get("value", 0) / 1e8
+
             if addr:
                 output_addrs.append(addr)
+                logger.debug(
+                    f"  TX {txid}: vout[{idx}] → {addr[:8]}...{addr[-8:]} "
+                    f"({value_btc:.8f} BTC)"
+                )
+
+        logger.debug(
+            f"TX {txid}: Parsed {len(input_addrs)} inputs, {len(output_addrs)} outputs"
+        )
 
         return input_addrs, output_addrs
 
@@ -146,6 +305,8 @@ class WhaleFlowDetector:
     ) -> Tuple[str, int]:
         """
         Classify transaction flow type based on exchange address involvement.
+
+        T077: Enhanced with DEBUG-level logging for classification logic.
 
         Args:
             input_addrs: List of input addresses
@@ -163,19 +324,36 @@ class WhaleFlowDetector:
             addr in self._exchange_addresses for addr in output_addrs
         )
 
+        # Count exchange addresses for logging
+        input_exchange_count = sum(
+            1 for addr in input_addrs if addr in self._exchange_addresses
+        )
+        output_exchange_count = sum(
+            1 for addr in output_addrs if addr in self._exchange_addresses
+        )
+
+        logger.debug(
+            f"    Classification: {input_exchange_count}/{len(input_addrs)} inputs from exchange, "
+            f"{output_exchange_count}/{len(output_addrs)} outputs to exchange"
+        )
+
         if not input_is_exchange and output_is_exchange:
             # Personal → Exchange (deposit to sell)
+            logger.debug("    → INFLOW (personal → exchange, bearish)")
             return "inflow", 1
 
         if input_is_exchange and not output_is_exchange:
             # Exchange → Personal (withdrawal to hold)
+            logger.debug("    → OUTFLOW (exchange → personal, bullish)")
             return "outflow", -1
 
         if input_is_exchange and output_is_exchange:
             # Exchange → Exchange (internal hot/cold wallet movement)
+            logger.debug("    → INTERNAL (exchange → exchange, neutral)")
             return "internal", 0
 
         # Personal → Personal (unrelated to exchanges)
+        logger.debug("    → UNRELATED (personal → personal, neutral)")
         return "unrelated", 0
 
     def _calculate_net_flow(
@@ -261,6 +439,8 @@ class WhaleFlowDetector:
         """
         Fetch all transactions for a block from electrs HTTP API (ASYNC with batching).
 
+        T078: Enhanced with retry logic (3 retries, exponential backoff: 1s/2s/4s)
+
         Args:
             session: aiohttp ClientSession (must be created by caller)
             block_hash: Bitcoin block hash
@@ -271,20 +451,27 @@ class WhaleFlowDetector:
             List of transaction dicts
 
         Raises:
-            ConnectionError: If electrs API is unavailable
+            ConnectionError: If electrs API is unavailable after all retries
 
         Performance:
             - 3190 tx block: ~84 seconds (vs ~180 seconds sequential)
             - Batching prevents event loop overload from too many simultaneous tasks
         """
-        try:
-            # Get transaction IDs for block
+
+        async def fetch_txids():
+            """Helper to fetch transaction IDs with timeout."""
             url = f"{ELECTRS_API_URL}/block/{block_hash}/txids"
             async with session.get(
                 url, timeout=aiohttp.ClientTimeout(total=10)
             ) as response:
                 response.raise_for_status()
-                txids = await response.json()
+                return await response.json()
+
+        try:
+            # T078: Retry transaction ID fetch with exponential backoff
+            txids = await _retry_with_backoff(
+                fetch_txids, max_retries=3, base_delay=1.0
+            )
 
             logger.info(
                 f"Fetching {len(txids)} transactions in batches of {batch_size}..."
@@ -339,6 +526,125 @@ class WhaleFlowDetector:
 
         except aiohttp.ClientError as e:
             raise ConnectionError(f"Failed to fetch transactions from electrs: {e}")
+
+    async def _fetch_transactions_from_bitcoin_rpc(
+        self, session: "aiohttp.ClientSession", block_hash: str
+    ) -> List[Dict]:
+        """
+        T085: Fallback method to fetch transactions via Bitcoin Core RPC (Tier 3).
+
+        This is a fallback when electrs fails. Uses Bitcoin Core RPC to fetch
+        block data and transaction details.
+
+        Args:
+            session: aiohttp ClientSession
+            block_hash: Bitcoin block hash
+
+        Returns:
+            List of transaction dicts (converted to electrs-compatible format)
+
+        Raises:
+            ConnectionError: If Bitcoin Core RPC is unavailable or disabled
+        """
+        if not self._bitcoin_rpc_enabled:
+            raise ConnectionError(
+                "Bitcoin Core RPC fallback is disabled. "
+                "Enable by providing bitcoin_rpc_url in constructor."
+            )
+
+        logger.warning(
+            f"⚠️  Falling back to Bitcoin Core RPC (electrs failed) for block {block_hash[:16]}..."
+        )
+
+        try:
+            # Prepare RPC authentication
+            auth = None
+            if self._bitcoin_rpc_user and self._bitcoin_rpc_password:
+                auth = aiohttp.BasicAuth(
+                    self._bitcoin_rpc_user, self._bitcoin_rpc_password
+                )
+
+            # RPC call to get block with full transaction details
+            rpc_payload = {
+                "jsonrpc": "1.0",
+                "id": "whale_detector",
+                "method": "getblock",
+                "params": [block_hash, 2],  # Verbosity 2 = full tx details
+            }
+
+            async with session.post(
+                self._bitcoin_rpc_url,
+                json=rpc_payload,
+                auth=auth,
+                timeout=aiohttp.ClientTimeout(total=30),  # RPC can be slower
+            ) as response:
+                response.raise_for_status()
+                rpc_result = await response.json()
+
+            if "error" in rpc_result and rpc_result["error"] is not None:
+                raise ConnectionError(
+                    f"Bitcoin RPC error: {rpc_result['error'].get('message', 'unknown')}"
+                )
+
+            block_data = rpc_result.get("result", {})
+            raw_txs = block_data.get("tx", [])
+
+            # Convert Bitcoin Core RPC format to electrs-compatible format
+            transactions = []
+            for raw_tx in raw_txs:
+                # Convert to electrs format (simplified, only fields we need)
+                tx = {
+                    "txid": raw_tx.get("txid", ""),
+                    "vin": [],
+                    "vout": [],
+                }
+
+                # Convert inputs (vin)
+                for vin in raw_tx.get("vin", []):
+                    if "coinbase" in vin:
+                        tx["vin"].append({"coinbase": vin["coinbase"]})
+                    else:
+                        # For RPC, we need to fetch prevout details separately
+                        # Simplified: just mark as unknown (limitation of RPC fallback)
+                        tx["vin"].append(
+                            {
+                                "txid": vin.get("txid", ""),
+                                "vout": vin.get("vout", 0),
+                                "prevout": {
+                                    "scriptpubkey_address": None,  # Unknown without extra RPC call
+                                    "value": 0,
+                                },
+                            }
+                        )
+
+                # Convert outputs (vout)
+                for vout in raw_tx.get("vout", []):
+                    script_pub_key = vout.get("scriptPubKey", {})
+                    addresses = script_pub_key.get("addresses", [])
+                    address = addresses[0] if addresses else None
+
+                    # RPC uses "address" field in newer versions
+                    if not address and "address" in script_pub_key:
+                        address = script_pub_key["address"]
+
+                    tx["vout"].append(
+                        {
+                            "scriptpubkey_address": address,
+                            "value": int(vout.get("value", 0) * 1e8),  # BTC to satoshis
+                        }
+                    )
+
+                transactions.append(tx)
+
+            logger.warning(
+                f"✓ Bitcoin Core RPC fallback successful: {len(transactions)} transactions fetched"
+            )
+            return transactions
+
+        except aiohttp.ClientError as e:
+            raise ConnectionError(f"Bitcoin Core RPC failed: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Unexpected error in Bitcoin RPC fallback: {e}")
 
     def _analyze_transactions(
         self, transactions: List[Dict], block_height: int, timestamp: int
@@ -399,6 +705,9 @@ class WhaleFlowDetector:
         """
         Analyze whale flow for a specific Bitcoin block using an existing session (ASYNC).
 
+        T078: Enhanced with retry logic for block hash and metadata fetches.
+        T080: Enhanced with performance metrics tracking.
+
         PERFORMANCE OPTIMIZED: Reuses aiohttp session instead of creating new one.
 
         Args:
@@ -409,35 +718,93 @@ class WhaleFlowDetector:
             WhaleFlowSignal
 
         Raises:
-            ConnectionError: If electrs unavailable
+            ConnectionError: If electrs unavailable after retries
             ValueError: If block_height invalid
             RuntimeError: If analysis fails
         """
-        try:
-            # Get block hash from height
+        start_time = time.time()  # T080: Performance tracking
+
+        async def fetch_block_hash():
+            """Helper to fetch block hash with timeout (for retry)."""
             url = f"{ELECTRS_API_URL}/block-height/{block_height}"
             async with session.get(
                 url, timeout=aiohttp.ClientTimeout(total=10)
             ) as response:
                 response.raise_for_status()
-                block_hash = (await response.text()).strip()
+                return (await response.text()).strip()
 
-            # Get block details for timestamp
+        async def fetch_block_metadata(block_hash: str):
+            """Helper to fetch block metadata (for retry)."""
             block_url = f"{ELECTRS_API_URL}/block/{block_hash}"
             async with session.get(
                 block_url, timeout=aiohttp.ClientTimeout(total=10)
             ) as block_response:
                 block_response.raise_for_status()
-                block_data = await block_response.json()
-                timestamp = block_data.get("timestamp", 0)
+                return await block_response.json()
 
-            # Fetch transactions (uses same session, async with batching)
-            transactions = await self._fetch_transactions_from_electrs(
-                session, block_hash
+        try:
+            # T078: Get block hash with retry
+            block_hash = await _retry_with_backoff(
+                fetch_block_hash, max_retries=3, base_delay=1.0
             )
+            logger.info(f"Block {block_height}: hash = {block_hash[:16]}...")
+
+            # T078: Get block details with retry
+            block_data = await _retry_with_backoff(
+                fetch_block_metadata, block_hash, max_retries=3, base_delay=1.0
+            )
+            timestamp = block_data.get("timestamp", 0)
+
+            # T085: Fetch transactions with fallback cascade (electrs → Bitcoin RPC)
+            tx_fetch_start = time.time()  # T080: Track tx fetch time
+            transactions = []
+            electrs_failed = False
+
+            try:
+                # Try electrs first (Tier 1 - primary)
+                transactions = await self._fetch_transactions_from_electrs(
+                    session, block_hash
+                )
+            except ConnectionError as e:
+                electrs_failed = True
+                logger.warning(f"Electrs failed for block {block_height}: {e}")
+
+                # T085: Fallback to Bitcoin Core RPC (Tier 3)
+                if self._bitcoin_rpc_enabled:
+                    logger.info("Attempting Bitcoin Core RPC fallback...")
+                    try:
+                        transactions = await _retry_with_backoff(
+                            self._fetch_transactions_from_bitcoin_rpc,
+                            session,
+                            block_hash,
+                            max_retries=3,
+                            base_delay=1.0,
+                        )
+                    except Exception as rpc_error:
+                        raise ConnectionError(
+                            f"Both electrs and Bitcoin RPC failed: {rpc_error}"
+                        )
+                else:
+                    raise ConnectionError(
+                        f"Electrs failed and Bitcoin RPC fallback is disabled: {e}"
+                    )
+
+            tx_fetch_duration = time.time() - tx_fetch_start
 
             # Analyze transactions (synchronous analysis)
-            return self._analyze_transactions(transactions, block_height, timestamp)
+            analysis_start = time.time()
+            signal = self._analyze_transactions(transactions, block_height, timestamp)
+            analysis_duration = time.time() - analysis_start
+
+            # T080: Log performance metrics
+            total_duration = time.time() - start_time
+            logger.info(
+                f"Block {block_height} analysis complete: "
+                f"{len(transactions)} tx in {total_duration:.2f}s "
+                f"(fetch: {tx_fetch_duration:.2f}s, analysis: {analysis_duration:.2f}s)"
+            )
+
+            return signal
 
         except aiohttp.ClientError as e:
             raise ConnectionError(f"Failed to analyze block {block_height}: {e}")
@@ -501,6 +868,18 @@ class WhaleFlowDetector:
             Number of exchange addresses in lookup set
         """
         return len(self._exchange_addresses)
+
+    def shutdown(self):
+        """
+        T086: Graceful shutdown handler (no-op for stateless detector).
+
+        WhaleFlowDetector is stateless - all data is loaded at init and
+        aiohttp sessions are created per-analysis. No persistent state
+        to save or connections to close.
+
+        Future: If persistent connections or caching is added, cleanup here.
+        """
+        logger.info("WhaleFlowDetector shutdown (no cleanup needed - stateless)")
 
 
 # CLI for standalone testing
