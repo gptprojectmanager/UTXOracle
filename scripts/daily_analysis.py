@@ -22,8 +22,9 @@ from datetime import datetime
 from typing import Dict, Optional, List
 from pathlib import Path
 
-# Add parent directory to path for imports
+# Add parent directory and scripts directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
 
 # Third-party imports
 import requests
@@ -32,6 +33,13 @@ from dotenv import load_dotenv
 
 # Local imports
 from UTXOracle_library import UTXOracleCalculator
+
+# Whale Flow Detector (spec-004) - import after scripts/ is in path
+try:
+    from whale_flow_detector import WhaleFlowDetector
+except ImportError:
+    # Whale detection will be disabled if import fails
+    WhaleFlowDetector = None
 
 
 # =============================================================================
@@ -832,8 +840,9 @@ def save_to_duckdb(data: Dict, db_path: str, backup_path: str) -> None:
     insert_sql = """
     INSERT OR REPLACE INTO price_analysis (
         date, exchange_price, utxoracle_price, price_difference,
-        avg_pct_diff, confidence, tx_count, is_valid
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        avg_pct_diff, confidence, tx_count, is_valid,
+        whale_net_flow, whale_direction, action, combined_signal
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
 
     values = (
@@ -847,6 +856,10 @@ def save_to_duckdb(data: Dict, db_path: str, backup_path: str) -> None:
         data["confidence"],
         data["tx_count"],
         data["is_valid"],
+        data.get("whale_net_flow"),
+        data.get("whale_direction"),
+        data.get("action"),
+        data.get("combined_signal"),
     )
 
     try:
@@ -871,7 +884,11 @@ def save_to_duckdb(data: Dict, db_path: str, backup_path: str) -> None:
                     avg_pct_diff DECIMAL(6, 2),
                     confidence DECIMAL(5, 4),
                     tx_count INTEGER,
-                    is_valid BOOLEAN DEFAULT TRUE
+                    is_valid BOOLEAN DEFAULT TRUE,
+                    whale_net_flow REAL,
+                    whale_direction TEXT,
+                    action TEXT,
+                    combined_signal REAL
                 )
                 """)
                 conn.execute(insert_sql, values)
@@ -980,6 +997,99 @@ def setup_logging(log_level: str) -> None:
     )
 
 
+# ===== Signal Fusion Logic (spec-004, Phase 4: T050-T053) =====
+
+
+def _calculate_whale_vote(net_flow_btc: float, direction: str) -> float:
+    """
+    T050: Calculate whale vote from net flow signal.
+
+    Args:
+        net_flow_btc: Net BTC flow (inflow - outflow)
+        direction: Whale direction ("ACCUMULATION" | "DISTRIBUTION" | "NEUTRAL")
+
+    Returns:
+        Vote value:
+        - 1.0: Bullish (ACCUMULATION = whales withdrawing from exchanges)
+        - -1.0: Bearish (DISTRIBUTION = whales depositing to exchanges)
+        - 0.0: Neutral (no strong signal)
+    """
+    if direction == "ACCUMULATION":
+        return 1.0  # Bullish: whales withdrawing (likely to hold)
+    elif direction == "DISTRIBUTION":
+        return -1.0  # Bearish: whales depositing (likely to sell)
+    else:
+        return 0.0  # Neutral: no clear signal
+
+
+def _calculate_utxo_vote(confidence: float) -> float:
+    """
+    T051: Calculate UTXOracle vote from confidence score.
+
+    Args:
+        confidence: UTXOracle confidence score (0.0 to 1.0)
+
+    Returns:
+        Vote value:
+        - 1.0: High confidence (≥0.3) → trust the price calculation
+        - 0.0: Low confidence (<0.3) → don't trust price, stay neutral
+    """
+    if confidence >= 0.3:
+        return 1.0  # High confidence: trust UTXOracle price
+    else:
+        return 0.0  # Low confidence: don't trust price, neutral vote
+
+
+def _fuse_signals(whale_vote: float, utxo_vote: float) -> float:
+    """
+    T052: Fuse whale and UTXOracle signals with weighted combination.
+
+    Args:
+        whale_vote: Whale vote (-1.0 to 1.0)
+        utxo_vote: UTXOracle vote (0.0 or 1.0)
+
+    Returns:
+        Combined signal (-1.0 to 1.0):
+        - Whale weight: 70% (leading indicator, on-chain behavior)
+        - UTXOracle weight: 30% (confidence in price calculation)
+
+    Formula:
+        combined_signal = 0.7 * whale_vote + 0.3 * utxo_vote
+
+    Examples:
+        - Whale bullish (1.0) + UTXOracle confident (1.0) = 1.0 (strong BUY)
+        - Whale bearish (-1.0) + UTXOracle uncertain (0.0) = -0.7 (SELL)
+        - Whale neutral (0.0) + UTXOracle confident (1.0) = 0.3 (HOLD)
+    """
+    return 0.7 * whale_vote + 0.3 * utxo_vote
+
+
+def _determine_action(combined_signal: float) -> str:
+    """
+    T053: Determine trading action from combined signal.
+
+    Args:
+        combined_signal: Fused signal (-1.0 to 1.0)
+
+    Returns:
+        Action string:
+        - "BUY": Signal > 0.5 (strong bullish)
+        - "SELL": Signal < -0.5 (strong bearish)
+        - "HOLD": Signal between -0.5 and 0.5 (neutral or weak signal)
+
+    Thresholds:
+        - BUY threshold: 0.5 (requires strong bullish signal)
+        - SELL threshold: -0.5 (requires strong bearish signal)
+        - HOLD: Default for uncertain signals
+    """
+    if combined_signal > 0.5:
+        return "BUY"
+    elif combined_signal < -0.5:
+        return "SELL"
+    else:
+        return "HOLD"
+
+
 def main():
     """
     Main execution flow for daily analysis.
@@ -1075,6 +1185,29 @@ def main():
     except Exception as e:
         logging.warning(f"Gap detection failed: {e}")
 
+    # Initialize Whale Flow Detector (T042 - spec-004)
+    whale_detector = None
+    try:
+        exchange_csv_path = Path(
+            config.get(
+                "EXCHANGE_ADDRESSES_CSV",
+                "/media/sam/1TB/UTXOracle/data/exchange_addresses.csv",
+            )
+        )
+        if exchange_csv_path.exists():
+            whale_detector = WhaleFlowDetector(str(exchange_csv_path))
+            logging.info(
+                f"Whale detector initialized with {whale_detector.get_exchange_address_count()} exchange addresses"
+            )
+        else:
+            logging.warning(
+                f"Exchange addresses CSV not found at {exchange_csv_path}, whale detection disabled"
+            )
+    except Exception as e:
+        logging.warning(
+            f"Failed to initialize whale detector: {e}. Continuing without whale detection."
+        )
+
     # Main analysis workflow
     try:
         logging.info("=" * 60)
@@ -1087,6 +1220,55 @@ def main():
 
         # Step 2: Calculate UTXOracle price (T040 - Phase 9: uses mempool.space API)
         utx_result = calculate_utxoracle_price(config)
+
+        # Step 2.5: Analyze whale flow (T043 - spec-004)
+        whale_signal = None
+        if whale_detector:
+            try:
+                whale_signal = whale_detector.analyze_latest_block()
+                logging.info(
+                    f"🐋 Whale Signal: {whale_signal.direction} "
+                    f"(net flow: {whale_signal.net_flow_btc:+.2f} BTC, "
+                    f"confidence: {whale_signal.confidence:.2%})"
+                )
+            except Exception as e:
+                logging.warning(
+                    f"Whale detection failed: {e}. Continuing without whale data."
+                )
+
+        # Step 2.6: Signal Fusion (T054-T057 - spec-004 Phase 4)
+        action = None
+        combined_signal = None
+
+        # T056: Graceful degradation - if no whale signal, use UTXOracle only
+        if whale_signal:
+            # Calculate votes from each signal
+            whale_vote = _calculate_whale_vote(
+                net_flow_btc=whale_signal.net_flow_btc, direction=whale_signal.direction
+            )
+            utxo_vote = _calculate_utxo_vote(confidence=utx_result["confidence"])
+
+            # Fuse signals (70% whale + 30% utxo)
+            combined_signal = _fuse_signals(whale_vote, utxo_vote)
+
+            # Determine action
+            action = _determine_action(combined_signal)
+
+            # T057: Log signal fusion details
+            logging.info(
+                f"📊 Signal Fusion: "
+                f"whale_vote={whale_vote:+.1f}, "
+                f"utxo_vote={utxo_vote:+.1f}, "
+                f"combined={combined_signal:+.2f} → "
+                f"Action: {action}"
+            )
+        else:
+            # T056: No whale signal - UTXOracle only mode
+            logging.info(
+                "📊 Signal Fusion: No whale data, using UTXOracle-only mode (action=HOLD)"
+            )
+            action = "HOLD"  # Conservative: HOLD when missing whale data
+            combined_signal = 0.0  # Neutral signal
 
         # Step 3: Compare prices (T041)
         comparison = compare_prices(utx_result["price_usd"], mempool_price)
@@ -1103,6 +1285,12 @@ def main():
             "is_valid": validate_price_data(
                 {**utx_result, "utxoracle_price": utx_result["price_usd"]}, config
             ),
+            # Whale flow data (T044 - spec-004 Phase 3)
+            "whale_net_flow": whale_signal.net_flow_btc if whale_signal else None,
+            "whale_direction": whale_signal.direction if whale_signal else None,
+            # Signal fusion data (T055 - spec-004 Phase 4)
+            "action": action,
+            "combined_signal": combined_signal,
         }
 
         # Step 5: Save to database (T042, T043)

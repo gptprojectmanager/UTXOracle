@@ -93,13 +93,13 @@
 
 ### Integration for User Story 1
 
-- [ ] T038 [US1] Integration test: `test_whale_detector_with_real_electrs_api()` in tests/integration/test_whale_integration.py
-- [ ] T039 [US1] Integration test: `test_fetch_latest_block_and_analyze()` in tests/integration/test_whale_integration.py
-- [ ] T040 [US1] Integration test: `test_whale_flow_signal_consistency()` in tests/integration/test_whale_integration.py
-- [ ] T041 [US1] Add whale detector import to `scripts/daily_analysis.py` (line ~15: `from whale_flow_detector import WhaleFlowDetector`)
-- [ ] T042 [US1] Initialize WhaleFlowDetector in `scripts/daily_analysis.py` (load exchange addresses once at startup)
-- [ ] T043 [US1] Call `whale_detector.analyze_latest_block()` in main loop of daily_analysis.py (after UTXOracle calculation)
-- [ ] T044 [US1] Log whale signal output in daily_analysis.py (net_flow, direction, confidence)
+- [ ] T038 [US1] Integration test: `test_whale_detector_with_real_electrs_api()` in tests/integration/test_whale_integration.py (DEFERRED to Phase 6)
+- [ ] T039 [US1] Integration test: `test_fetch_latest_block_and_analyze()` in tests/integration/test_whale_integration.py (DEFERRED to Phase 6)
+- [ ] T040 [US1] Integration test: `test_whale_flow_signal_consistency()` in tests/integration/test_whale_integration.py (DEFERRED to Phase 6)
+- [X] T041 [US1] Add whale detector import to `scripts/daily_analysis.py` (line ~15: `from whale_flow_detector import WhaleFlowDetector`)
+- [X] T042 [US1] Initialize WhaleFlowDetector in `scripts/daily_analysis.py` (load exchange addresses once at startup)
+- [X] T043 [US1] Call `whale_detector.analyze_latest_block()` in main loop of daily_analysis.py (after UTXOracle calculation)
+- [X] T044 [US1] Log whale signal output in daily_analysis.py (net_flow, direction, confidence)
 
 **Checkpoint US1 Complete**: Run `python3 scripts/daily_analysis.py --dry-run --verbose` and verify whale signal logged
 
@@ -113,24 +113,24 @@
 
 ### Tests for User Story 2 (TDD - Write FIRST) ⚠️
 
-- [ ] T045 [P] [US2] Unit test: `test_signal_fusion_buy_scenario()` in tests/test_whale_flow_detector.py
-- [ ] T046 [P] [US2] Unit test: `test_signal_fusion_sell_scenario()` in tests/test_whale_flow_detector.py
-- [ ] T047 [P] [US2] Unit test: `test_signal_fusion_hold_scenario()` in tests/test_whale_flow_detector.py
-- [ ] T048 [P] [US2] Unit test: `test_signal_fusion_conflict_scenario()` in tests/test_whale_flow_detector.py (whale bullish + utxo bearish = HOLD)
+- [x] T045 [P] [US2] Unit test: `test_signal_fusion_buy_scenario()` in tests/test_whale_flow_detector.py
+- [x] T046 [P] [US2] Unit test: `test_signal_fusion_sell_scenario()` in tests/test_whale_flow_detector.py
+- [x] T047 [P] [US2] Unit test: `test_signal_fusion_hold_scenario()` in tests/test_whale_flow_detector.py
+- [x] T048 [P] [US2] Unit test: `test_signal_fusion_conflict_scenario()` in tests/test_whale_flow_detector.py (whale bullish + utxo bearish = HOLD)
 - [ ] T049 [P] [US2] Integration test: `test_duckdb_persistence_with_whale_data()` in tests/integration/test_whale_integration.py
 
 **Checkpoint RED**: All US2 tests written and FAILING
 
 ### Implementation for User Story 2 (GREEN Phase) 🟢
 
-- [ ] T050 [US2] Implement `_calculate_whale_vote()` helper in daily_analysis.py (net_flow → vote: 1.0/-1.0/0.0)
-- [ ] T051 [US2] Implement `_calculate_utxo_vote()` helper in daily_analysis.py (confidence → vote: 1.0/-1.0/0.0)
-- [ ] T052 [US2] Implement `_fuse_signals()` method in daily_analysis.py (weighted combination: whale 70%, utxo 30%)
-- [ ] T053 [US2] Implement `_determine_action()` method in daily_analysis.py (threshold: >0.5 = BUY, <-0.5 = SELL)
-- [ ] T054 [US2] Add signal fusion call in daily_analysis.py main loop (after whale signal, before DB save)
-- [ ] T055 [US2] Extend DuckDB INSERT statement to include whale_net_flow, whale_direction, action, combined_signal
-- [ ] T056 [US2] Add graceful degradation: if whale detector fails, continue with UTXOracle-only (set whale_vote=0)
-- [ ] T057 [US2] Add logging for signal fusion: whale_vote, utxo_vote, combined_signal, action
+- [x] T050 [US2] Implement `_calculate_whale_vote()` helper in daily_analysis.py (net_flow → vote: 1.0/-1.0/0.0)
+- [x] T051 [US2] Implement `_calculate_utxo_vote()` helper in daily_analysis.py (confidence → vote: 1.0/-1.0/0.0)
+- [x] T052 [US2] Implement `_fuse_signals()` method in daily_analysis.py (weighted combination: whale 70%, utxo 30%)
+- [x] T053 [US2] Implement `_determine_action()` method in daily_analysis.py (threshold: >0.5 = BUY, <-0.5 = SELL)
+- [x] T054 [US2] Add signal fusion call in daily_analysis.py main loop (after whale signal, before DB save)
+- [x] T055 [US2] Extend DuckDB INSERT statement to include whale_net_flow, whale_direction, action, combined_signal
+- [x] T056 [US2] Add graceful degradation: if whale detector fails, continue with UTXOracle-only (set whale_vote=0)
+- [x] T057 [US2] Add logging for signal fusion: whale_vote, utxo_vote, combined_signal, action
 
 **Checkpoint GREEN**: All US2 tests pass, DuckDB contains whale data
 

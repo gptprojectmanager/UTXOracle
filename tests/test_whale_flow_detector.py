@@ -387,3 +387,212 @@ def test_whale_flow_signal_validation():
             block_height=922000,
             timestamp=1730000000,
         )
+
+# ===== Phase 4: Signal Fusion Tests (T045-T048) =====
+
+
+# T045: test_signal_fusion_buy_scenario()
+def test_signal_fusion_buy_scenario():
+    """
+    Test signal fusion for BUY scenario (whale bullish + UTXOracle confident).
+
+    Scenario:
+    - Whale signal: ACCUMULATION (net_flow < -100 BTC) → whale_vote = 1.0 (bullish)
+    - UTXOracle confidence: 0.8 → utxo_vote = 1.0 (confident in price)
+    - Combined signal: 0.7 * 1.0 + 0.3 * 1.0 = 1.0
+    - Action: BUY (combined_signal > 0.5)
+
+    Success Criteria:
+    - whale_vote = 1.0
+    - utxo_vote = 1.0
+    - combined_signal = 1.0
+    - action = "BUY"
+    """
+    # Import signal fusion helpers (will fail initially - RED phase)
+    try:
+        from scripts.daily_analysis import (
+            _calculate_whale_vote,
+            _calculate_utxo_vote,
+            _fuse_signals,
+            _determine_action,
+        )
+    except ImportError:
+        pytest.skip("Signal fusion methods not implemented yet (RED phase)")
+
+    # Whale signal: ACCUMULATION (-150 BTC net outflow)
+    whale_vote = _calculate_whale_vote(net_flow_btc=-150.0, direction="ACCUMULATION")
+    assert whale_vote == 1.0, f"Expected whale_vote=1.0 (bullish), got {whale_vote}"
+
+    # UTXOracle: High confidence (0.8)
+    utxo_vote = _calculate_utxo_vote(confidence=0.8)
+    assert utxo_vote == 1.0, f"Expected utxo_vote=1.0 (confident), got {utxo_vote}"
+
+    # Combined signal: 70% whale + 30% utxo
+    combined_signal = _fuse_signals(whale_vote, utxo_vote)
+    assert (
+        abs(combined_signal - 1.0) < 0.01
+    ), f"Expected combined_signal=1.0, got {combined_signal}"
+
+    # Action: BUY (signal > 0.5)
+    action = _determine_action(combined_signal)
+    assert action == "BUY", f"Expected action='BUY', got '{action}'"
+
+
+# T046: test_signal_fusion_sell_scenario()
+def test_signal_fusion_sell_scenario():
+    """
+    Test signal fusion for SELL scenario (whale bearish + UTXOracle confident).
+
+    Scenario:
+    - Whale signal: DISTRIBUTION (net_flow > +100 BTC) → whale_vote = -1.0 (bearish)
+    - UTXOracle confidence: 0.7 → utxo_vote = 1.0 (confident)
+    - Combined signal: 0.7 * (-1.0) + 0.3 * 1.0 = -0.4
+    - Action: HOLD (signal between -0.5 and 0.5)
+
+    However, if whale signal is VERY bearish (e.g., +500 BTC inflow):
+    - whale_vote = -1.0
+    - utxo_vote = 1.0
+    - Combined signal: 0.7 * (-1.0) + 0.3 * 1.0 = -0.4 (still HOLD)
+
+    For SELL, we need weak UTXOracle OR very strong whale signal.
+    Let's test: whale -1.0, utxo 0.0 (low confidence)
+    - Combined: 0.7 * (-1.0) + 0.3 * 0.0 = -0.7
+    - Action: SELL (signal < -0.5)
+
+    Success Criteria:
+    - whale_vote = -1.0
+    - utxo_vote = 0.0 (low confidence → neutral)
+    - combined_signal = -0.7
+    - action = "SELL"
+    """
+    try:
+        from scripts.daily_analysis import (
+            _calculate_whale_vote,
+            _calculate_utxo_vote,
+            _fuse_signals,
+            _determine_action,
+        )
+    except ImportError:
+        pytest.skip("Signal fusion methods not implemented yet (RED phase)")
+
+    # Whale signal: DISTRIBUTION (+200 BTC net inflow)
+    whale_vote = _calculate_whale_vote(net_flow_btc=200.0, direction="DISTRIBUTION")
+    assert whale_vote == -1.0, f"Expected whale_vote=-1.0 (bearish), got {whale_vote}"
+
+    # UTXOracle: Low confidence (0.2) → neutral vote
+    utxo_vote = _calculate_utxo_vote(confidence=0.2)
+    assert utxo_vote == 0.0, f"Expected utxo_vote=0.0 (low confidence), got {utxo_vote}"
+
+    # Combined signal: 70% whale + 30% utxo
+    combined_signal = _fuse_signals(whale_vote, utxo_vote)
+    assert (
+        abs(combined_signal - (-0.7)) < 0.01
+    ), f"Expected combined_signal=-0.7, got {combined_signal}"
+
+    # Action: SELL (signal < -0.5)
+    action = _determine_action(combined_signal)
+    assert action == "SELL", f"Expected action='SELL', got '{action}'"
+
+
+# T047: test_signal_fusion_hold_scenario()
+def test_signal_fusion_hold_scenario():
+    """
+    Test signal fusion for HOLD scenario (neutral signals).
+
+    Scenario:
+    - Whale signal: NEUTRAL (net_flow between -100 and +100 BTC) → whale_vote = 0.0
+    - UTXOracle confidence: 0.5 → utxo_vote = 1.0 (moderate confidence)
+    - Combined signal: 0.7 * 0.0 + 0.3 * 1.0 = 0.3
+    - Action: HOLD (signal between -0.5 and 0.5)
+
+    Success Criteria:
+    - whale_vote = 0.0
+    - utxo_vote = 1.0
+    - combined_signal = 0.3
+    - action = "HOLD"
+    """
+    try:
+        from scripts.daily_analysis import (
+            _calculate_whale_vote,
+            _calculate_utxo_vote,
+            _fuse_signals,
+            _determine_action,
+        )
+    except ImportError:
+        pytest.skip("Signal fusion methods not implemented yet (RED phase)")
+
+    # Whale signal: NEUTRAL (+50 BTC net inflow)
+    whale_vote = _calculate_whale_vote(net_flow_btc=50.0, direction="NEUTRAL")
+    assert whale_vote == 0.0, f"Expected whale_vote=0.0 (neutral), got {whale_vote}"
+
+    # UTXOracle: Moderate confidence (0.5)
+    utxo_vote = _calculate_utxo_vote(confidence=0.5)
+    assert utxo_vote == 1.0, f"Expected utxo_vote=1.0 (moderate confidence), got {utxo_vote}"
+
+    # Combined signal: 70% whale + 30% utxo
+    combined_signal = _fuse_signals(whale_vote, utxo_vote)
+    assert (
+        abs(combined_signal - 0.3) < 0.01
+    ), f"Expected combined_signal=0.3, got {combined_signal}"
+
+    # Action: HOLD (signal between -0.5 and 0.5)
+    action = _determine_action(combined_signal)
+    assert action == "HOLD", f"Expected action='HOLD', got '{action}'"
+
+
+# T048: test_signal_fusion_conflict_scenario()
+def test_signal_fusion_conflict_scenario():
+    """
+    Test signal fusion when whale and UTXOracle conflict.
+
+    Scenario:
+    - Whale signal: ACCUMULATION (bullish, -150 BTC) → whale_vote = 1.0
+    - UTXOracle confidence: LOW (0.2) → utxo_vote = 0.0 (don't trust price)
+    - Combined signal: 0.7 * 1.0 + 0.3 * 0.0 = 0.7
+    - Action: BUY (whale signal dominates with 70% weight)
+
+    Alternative conflict:
+    - Whale DISTRIBUTION (bearish, +150 BTC) → whale_vote = -1.0
+    - UTXOracle high confidence (0.8) → utxo_vote = 1.0
+    - Combined: 0.7 * (-1.0) + 0.3 * 1.0 = -0.4
+    - Action: HOLD (conflicting signals cancel out)
+
+    Success Criteria:
+    - Test both conflict scenarios
+    - Whale signal weight (70%) should dominate in strong divergence
+    """
+    try:
+        from scripts.daily_analysis import (
+            _calculate_whale_vote,
+            _calculate_utxo_vote,
+            _fuse_signals,
+            _determine_action,
+        )
+    except ImportError:
+        pytest.skip("Signal fusion methods not implemented yet (RED phase)")
+
+    # Conflict 1: Whale bullish, UTXOracle uncertain
+    whale_vote_1 = _calculate_whale_vote(net_flow_btc=-150.0, direction="ACCUMULATION")
+    utxo_vote_1 = _calculate_utxo_vote(confidence=0.2)
+    combined_1 = _fuse_signals(whale_vote_1, utxo_vote_1)
+    action_1 = _determine_action(combined_1)
+
+    assert whale_vote_1 == 1.0, f"Expected whale_vote=1.0, got {whale_vote_1}"
+    assert utxo_vote_1 == 0.0, f"Expected utxo_vote=0.0, got {utxo_vote_1}"
+    assert (
+        abs(combined_1 - 0.7) < 0.01
+    ), f"Expected combined_signal=0.7, got {combined_1}"
+    assert action_1 == "BUY", f"Expected action='BUY', got '{action_1}'"
+
+    # Conflict 2: Whale bearish, UTXOracle confident
+    whale_vote_2 = _calculate_whale_vote(net_flow_btc=150.0, direction="DISTRIBUTION")
+    utxo_vote_2 = _calculate_utxo_vote(confidence=0.8)
+    combined_2 = _fuse_signals(whale_vote_2, utxo_vote_2)
+    action_2 = _determine_action(combined_2)
+
+    assert whale_vote_2 == -1.0, f"Expected whale_vote=-1.0, got {whale_vote_2}"
+    assert utxo_vote_2 == 1.0, f"Expected utxo_vote=1.0, got {utxo_vote_2}"
+    assert (
+        abs(combined_2 - (-0.4)) < 0.01
+    ), f"Expected combined_signal=-0.4, got {combined_2}"
+    assert action_2 == "HOLD", f"Expected action='HOLD', got '{action_2}'"

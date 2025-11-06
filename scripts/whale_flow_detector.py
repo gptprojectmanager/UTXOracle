@@ -122,7 +122,10 @@ class WhaleFlowDetector(WhaleFlowDetectorInterface):
             if "coinbase" in vin:
                 continue
 
-            prevout = vin.get("prevout", {})
+            prevout = vin.get("prevout")
+            if prevout is None:
+                continue  # Skip if no prevout
+
             addr = prevout.get("scriptpubkey_address")
             if addr:
                 input_addrs.append(addr)
