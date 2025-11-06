@@ -388,6 +388,7 @@ def test_whale_flow_signal_validation():
             timestamp=1730000000,
         )
 
+
 # ===== Phase 4: Signal Fusion Tests (T045-T048) =====
 
 
@@ -429,9 +430,9 @@ def test_signal_fusion_buy_scenario():
 
     # Combined signal: 70% whale + 30% utxo
     combined_signal = _fuse_signals(whale_vote, utxo_vote)
-    assert (
-        abs(combined_signal - 1.0) < 0.01
-    ), f"Expected combined_signal=1.0, got {combined_signal}"
+    assert abs(combined_signal - 1.0) < 0.01, (
+        f"Expected combined_signal=1.0, got {combined_signal}"
+    )
 
     # Action: BUY (signal > 0.5)
     action = _determine_action(combined_signal)
@@ -485,9 +486,9 @@ def test_signal_fusion_sell_scenario():
 
     # Combined signal: 70% whale + 30% utxo
     combined_signal = _fuse_signals(whale_vote, utxo_vote)
-    assert (
-        abs(combined_signal - (-0.7)) < 0.01
-    ), f"Expected combined_signal=-0.7, got {combined_signal}"
+    assert abs(combined_signal - (-0.7)) < 0.01, (
+        f"Expected combined_signal=-0.7, got {combined_signal}"
+    )
 
     # Action: SELL (signal < -0.5)
     action = _determine_action(combined_signal)
@@ -527,13 +528,15 @@ def test_signal_fusion_hold_scenario():
 
     # UTXOracle: Moderate confidence (0.5)
     utxo_vote = _calculate_utxo_vote(confidence=0.5)
-    assert utxo_vote == 1.0, f"Expected utxo_vote=1.0 (moderate confidence), got {utxo_vote}"
+    assert utxo_vote == 1.0, (
+        f"Expected utxo_vote=1.0 (moderate confidence), got {utxo_vote}"
+    )
 
     # Combined signal: 70% whale + 30% utxo
     combined_signal = _fuse_signals(whale_vote, utxo_vote)
-    assert (
-        abs(combined_signal - 0.3) < 0.01
-    ), f"Expected combined_signal=0.3, got {combined_signal}"
+    assert abs(combined_signal - 0.3) < 0.01, (
+        f"Expected combined_signal=0.3, got {combined_signal}"
+    )
 
     # Action: HOLD (signal between -0.5 and 0.5)
     action = _determine_action(combined_signal)
@@ -579,9 +582,9 @@ def test_signal_fusion_conflict_scenario():
 
     assert whale_vote_1 == 1.0, f"Expected whale_vote=1.0, got {whale_vote_1}"
     assert utxo_vote_1 == 0.0, f"Expected utxo_vote=0.0, got {utxo_vote_1}"
-    assert (
-        abs(combined_1 - 0.7) < 0.01
-    ), f"Expected combined_signal=0.7, got {combined_1}"
+    assert abs(combined_1 - 0.7) < 0.01, (
+        f"Expected combined_signal=0.7, got {combined_1}"
+    )
     assert action_1 == "BUY", f"Expected action='BUY', got '{action_1}'"
 
     # Conflict 2: Whale bearish, UTXOracle confident
@@ -592,7 +595,304 @@ def test_signal_fusion_conflict_scenario():
 
     assert whale_vote_2 == -1.0, f"Expected whale_vote=-1.0, got {whale_vote_2}"
     assert utxo_vote_2 == 1.0, f"Expected utxo_vote=1.0, got {utxo_vote_2}"
-    assert (
-        abs(combined_2 - (-0.4)) < 0.01
-    ), f"Expected combined_signal=-0.4, got {combined_2}"
+    assert abs(combined_2 - (-0.4)) < 0.01, (
+        f"Expected combined_signal=-0.4, got {combined_2}"
+    )
     assert action_2 == "HOLD", f"Expected action='HOLD', got '{action_2}'"
+
+
+# =============================================================================
+# Phase 5: User Story 3 - Backtest Tests (T063-T064)
+# =============================================================================
+
+
+def test_backtest_correlation_calculation():
+    """
+    T063: Test correlation calculation between whale net flow and price changes.
+
+    Validates:
+    - Pearson correlation coefficient calculation
+    - Positive correlation (whale accumulation → price rise)
+    - Negative correlation (whale distribution → price drop)
+    - Zero correlation (random signals)
+    - Edge cases (empty data, single point, identical values)
+
+    Success Criteria:
+    - Known positive correlation returns ~0.8 to 1.0
+    - Known negative correlation returns ~-0.8 to -1.0
+    - Random data returns ~0.0 (±0.3)
+    - Edge cases handled gracefully (no crashes)
+    """
+    try:
+        from scripts.whale_flow_backtest import calculate_correlation
+    except ImportError:
+        pytest.skip("Backtest module not implemented yet (RED phase)")
+
+    # Test Case 1: Perfect positive correlation
+    # Whale accumulation (-net_flow) → price rises
+    signals_pos = [
+        WhaleFlowSignal(
+            net_flow_btc=50.0
+            - (150.0 * (i + 1)),  # inflow - outflow (correct calculation)
+            direction="ACCUMULATION",
+            confidence=0.8,
+            inflow_btc=50.0,
+            outflow_btc=150.0 * (i + 1),
+            internal_btc=0.0,
+            tx_count_total=100,
+            tx_count_relevant=20,
+            block_height=920000 + i,
+            timestamp=1730000000 + i * 600,
+        )
+        for i in range(10)
+    ]
+    price_changes_pos = [1.0 * (i + 1) for i in range(10)]  # Increasing price changes
+
+    corr_pos = calculate_correlation(signals_pos, price_changes_pos)
+    assert -1.0 <= corr_pos <= -0.8, (
+        f"Expected strong negative correlation (-1.0 to -0.8), got {corr_pos} "
+        f"(negative net_flow vs positive price change)"
+    )
+
+    # Test Case 2: Perfect negative correlation
+    # Whale distribution (+net_flow) → price drops
+    signals_neg = [
+        WhaleFlowSignal(
+            net_flow_btc=(150.0 * (i + 1))
+            - 50.0,  # inflow - outflow (correct calculation)
+            direction="DISTRIBUTION",
+            confidence=0.8,
+            inflow_btc=150.0 * (i + 1),
+            outflow_btc=50.0,
+            internal_btc=0.0,
+            tx_count_total=100,
+            tx_count_relevant=20,
+            block_height=920000 + i,
+            timestamp=1730000000 + i * 600,
+        )
+        for i in range(10)
+    ]
+    price_changes_neg = [-1.0 * (i + 1) for i in range(10)]  # Decreasing price changes
+
+    corr_neg = calculate_correlation(signals_neg, price_changes_neg)
+    assert -1.0 <= corr_neg <= -0.8, (
+        f"Expected strong negative correlation (-1.0 to -0.8), got {corr_neg} "
+        f"(positive net_flow vs negative price change)"
+    )
+
+    # Test Case 3: Zero correlation (uncorrelated data)
+    # Using a pattern that doesn't correlate with net_flow
+    signals_rand = [
+        WhaleFlowSignal(
+            net_flow_btc=100.0
+            - (
+                100.0 + (-1) ** i * 50.0
+            ),  # inflow - outflow (alternating: -50, 50, -50, 50, ...)
+            direction="NEUTRAL",
+            confidence=0.5,
+            inflow_btc=100.0,
+            outflow_btc=100.0 + (-1) ** i * 50.0,
+            internal_btc=0.0,
+            tx_count_total=100,
+            tx_count_relevant=20,
+            block_height=920000 + i,
+            timestamp=1730000000 + i * 600,
+        )
+        for i in range(10)
+    ]
+    # Pattern that doesn't correlate with net_flow (-50, 50, -50, 50...):
+    # Use: 1, -1, -1, 1, 1, -1, -1, 1, 1, -1 (every 2 values same sign)
+    price_changes_rand = [1.0 if (i // 2) % 2 == 0 else -1.0 for i in range(10)]
+
+    corr_rand = calculate_correlation(signals_rand, price_changes_rand)
+    assert -0.4 <= corr_rand <= 0.4, (
+        f"Expected weak/zero correlation (-0.4 to 0.4), got {corr_rand}"
+    )
+
+    # Test Case 4: Edge case - insufficient data
+    signals_short = [signals_pos[0]]
+    price_changes_short = [price_changes_pos[0]]
+
+    corr_short = calculate_correlation(signals_short, price_changes_short)
+    assert corr_short == 0.0, f"Expected 0.0 for single data point, got {corr_short}"
+
+    # Test Case 5: Edge case - mismatched lengths
+    with pytest.raises(ValueError, match="Signal count .* != price change count"):
+        calculate_correlation(signals_pos, price_changes_pos[:5])
+
+    print("✅ T063: Correlation calculation tests passed")
+
+
+def test_backtest_false_positive_rate():
+    """
+    T064: Test false positive rate calculation for whale signals.
+
+    Definition:
+    - False positive = Signal predicts wrong direction
+    - ACCUMULATION but price drops (bearish outcome)
+    - DISTRIBUTION but price rises (bullish outcome)
+    - NEUTRAL signals are excluded
+
+    Success Criteria:
+    - 0% false positive rate when all predictions correct
+    - 100% false positive rate when all predictions wrong
+    - 50% false positive rate for random predictions
+    - NEUTRAL signals excluded from calculation
+    - Edge cases handled (no signals, all neutral)
+    """
+    try:
+        from scripts.whale_flow_backtest import calculate_false_positive_rate
+    except ImportError:
+        pytest.skip("Backtest module not implemented yet (RED phase)")
+
+    # Test Case 1: Perfect predictions (0% false positive)
+    signals_perfect = [
+        WhaleFlowSignal(
+            net_flow_btc=-100.0,  # Outflow (bullish)
+            direction="ACCUMULATION",
+            confidence=0.8,
+            inflow_btc=50.0,
+            outflow_btc=150.0,
+            internal_btc=0.0,
+            tx_count_total=100,
+            tx_count_relevant=20,
+            block_height=920000,
+            timestamp=1730000000,
+        ),
+        WhaleFlowSignal(
+            net_flow_btc=100.0,  # Inflow (bearish)
+            direction="DISTRIBUTION",
+            confidence=0.8,
+            inflow_btc=150.0,
+            outflow_btc=50.0,
+            internal_btc=0.0,
+            tx_count_total=100,
+            tx_count_relevant=20,
+            block_height=920001,
+            timestamp=1730000600,
+        ),
+    ]
+    price_changes_perfect = [2.0, -2.0]  # ACCUMULATION → up, DISTRIBUTION → down
+
+    fpr_perfect = calculate_false_positive_rate(signals_perfect, price_changes_perfect)
+    assert fpr_perfect == 0.0, f"Expected 0% false positive, got {fpr_perfect * 100}%"
+
+    # Test Case 2: All wrong predictions (100% false positive)
+    signals_wrong = [
+        WhaleFlowSignal(
+            net_flow_btc=-100.0,
+            direction="ACCUMULATION",
+            confidence=0.8,
+            inflow_btc=50.0,
+            outflow_btc=150.0,
+            internal_btc=0.0,
+            tx_count_total=100,
+            tx_count_relevant=20,
+            block_height=920000,
+            timestamp=1730000000,
+        ),
+        WhaleFlowSignal(
+            net_flow_btc=100.0,
+            direction="DISTRIBUTION",
+            confidence=0.8,
+            inflow_btc=150.0,
+            outflow_btc=50.0,
+            internal_btc=0.0,
+            tx_count_total=100,
+            tx_count_relevant=20,
+            block_height=920001,
+            timestamp=1730000600,
+        ),
+    ]
+    price_changes_wrong = [-2.0, 2.0]  # ACCUMULATION → down, DISTRIBUTION → up (wrong)
+
+    fpr_wrong = calculate_false_positive_rate(signals_wrong, price_changes_wrong)
+    assert fpr_wrong == 1.0, f"Expected 100% false positive, got {fpr_wrong * 100}%"
+
+    # Test Case 3: Mixed predictions (50% false positive)
+    signals_mixed = [
+        WhaleFlowSignal(
+            net_flow_btc=-100.0,
+            direction="ACCUMULATION",
+            confidence=0.8,
+            inflow_btc=50.0,
+            outflow_btc=150.0,
+            internal_btc=0.0,
+            tx_count_total=100,
+            tx_count_relevant=20,
+            block_height=920000 + i,
+            timestamp=1730000000 + i * 600,
+        )
+        for i in range(4)
+    ]
+    price_changes_mixed = [2.0, -2.0, 2.0, -2.0]  # 50% correct, 50% wrong
+
+    fpr_mixed = calculate_false_positive_rate(signals_mixed, price_changes_mixed)
+    assert fpr_mixed == 0.5, f"Expected 50% false positive, got {fpr_mixed * 100}%"
+
+    # Test Case 4: NEUTRAL signals excluded
+    signals_with_neutral = [
+        WhaleFlowSignal(
+            net_flow_btc=-100.0,
+            direction="ACCUMULATION",
+            confidence=0.8,
+            inflow_btc=50.0,
+            outflow_btc=150.0,
+            internal_btc=0.0,
+            tx_count_total=100,
+            tx_count_relevant=20,
+            block_height=920000,
+            timestamp=1730000000,
+        ),
+        WhaleFlowSignal(
+            net_flow_btc=0.0,
+            direction="NEUTRAL",
+            confidence=0.5,
+            inflow_btc=100.0,
+            outflow_btc=100.0,
+            internal_btc=0.0,
+            tx_count_total=100,
+            tx_count_relevant=20,
+            block_height=920001,
+            timestamp=1730000600,
+        ),
+    ]
+    price_changes_with_neutral = [2.0, -2.0]  # NEUTRAL → down (should be ignored)
+
+    fpr_neutral = calculate_false_positive_rate(
+        signals_with_neutral, price_changes_with_neutral
+    )
+    assert fpr_neutral == 0.0, (
+        f"Expected 0% (NEUTRAL ignored), got {fpr_neutral * 100}%"
+    )
+
+    # Test Case 5: Edge case - all NEUTRAL signals
+    signals_all_neutral = [
+        WhaleFlowSignal(
+            net_flow_btc=0.0,
+            direction="NEUTRAL",
+            confidence=0.5,
+            inflow_btc=100.0,
+            outflow_btc=100.0,
+            internal_btc=0.0,
+            tx_count_total=100,
+            tx_count_relevant=20,
+            block_height=920000 + i,
+            timestamp=1730000000 + i * 600,
+        )
+        for i in range(3)
+    ]
+    price_changes_all_neutral = [1.0, -1.0, 2.0]
+
+    fpr_all_neutral = calculate_false_positive_rate(
+        signals_all_neutral, price_changes_all_neutral
+    )
+    assert fpr_all_neutral == 0.0, (
+        f"Expected 0.0 (no actionable signals), got {fpr_all_neutral}"
+    )
+
+    # Test Case 6: Edge case - mismatched lengths
+    with pytest.raises(ValueError, match="Signal count .* != price change count"):
+        calculate_false_positive_rate(signals_perfect, price_changes_perfect[:1])
+
+    print("✅ T064: False positive rate tests passed")

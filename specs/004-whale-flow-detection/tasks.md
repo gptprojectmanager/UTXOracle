@@ -136,11 +136,11 @@
 
 ### Dashboard Enhancement for User Story 2
 
-- [ ] T058 [US2] Add whale flow indicator HTML div to `frontend/comparison.html` (traffic light: green/red/yellow)
-- [ ] T059 [US2] Add JavaScript function to fetch whale data from DuckDB via API endpoint
-- [ ] T060 [US2] Add JavaScript function to update traffic light indicator (green = ACCUMULATION, red = DISTRIBUTION, yellow = NEUTRAL)
-- [ ] T061 [US2] Add whale net flow display: "ACCUMULATION: +1,250 BTC" or "DISTRIBUTION: -800 BTC"
-- [ ] T062 [US2] Add trading action display: "Action: BUY" with color coding (green/red/yellow)
+- [X] T058 [US2] Add whale flow indicator HTML div to `frontend/comparison.html` (traffic light: green/red/yellow)
+- [X] T059 [US2] Add JavaScript function to fetch whale data from DuckDB via API endpoint
+- [X] T060 [US2] Add JavaScript function to update traffic light indicator (green = ACCUMULATION, red = DISTRIBUTION, yellow = NEUTRAL)
+- [X] T061 [US2] Add whale net flow display: "ACCUMULATION: +1,250 BTC" or "DISTRIBUTION: -800 BTC"
+- [X] T062 [US2] Add trading action display: "Action: BUY" with color coding (green/red/yellow)
 
 **Checkpoint US2 Complete**: Open `http://localhost:8080`, verify whale flow indicator displays correctly
 
@@ -154,9 +154,9 @@
 
 ### Tests for User Story 3 (TDD - Write FIRST) ⚠️
 
-- [ ] T063 [P] [US3] Unit test: `test_backtest_correlation_calculation()` in tests/test_whale_flow_detector.py
-- [ ] T064 [P] [US3] Unit test: `test_backtest_false_positive_rate()` in tests/test_whale_flow_detector.py
-- [ ] T065 [P] [US3] Integration test: `test_backtest_7day_dataset()` in tests/integration/test_whale_integration.py
+- [X] T063 [P] [US3] Unit test: `test_backtest_correlation_calculation()` in tests/test_whale_flow_detector.py
+- [X] T064 [P] [US3] Unit test: `test_backtest_false_positive_rate()` in tests/test_whale_flow_detector.py
+- [ ] T065 [P] [US3] Integration test: `test_backtest_7day_dataset()` in tests/integration/test_whale_integration.py (DEFERRED to Phase 6)
 
 **Checkpoint RED**: All US3 tests written and FAILING
 
@@ -167,12 +167,12 @@
 - [x] T068 [US3] Implement `--start-block` argument for custom block range
 - [x] T069 [US3] Implement block range calculation: `start_block` to `start_block + (days * 144)`
 - [x] T070 [US3] Implement loop to call `whale_detector.analyze_block(height)` for each block in range
-- [ ] T071 [US3] Implement DuckDB storage for backtest results: table `backtest_whale_signals`
-- [ ] T072 [US3] Fetch BTC/USD price data for each block from `price_comparisons` table or mempool API
-- [ ] T073 [US3] Calculate price change 24h after each block (lag: 144 blocks)
+- [X] T071 [US3] Implement DuckDB storage for backtest results: table `backtest_whale_signals`
+- [X] T072 [US3] Fetch BTC/USD price data for each block from `price_comparisons` table or mempool API
+- [X] T073 [US3] Calculate price change 24h after each block (lag: 144 blocks)
 - [x] T074 [US3] Implement correlation calculation: `CORR(whale_net_flow, price_change_24h)`
 - [x] T075 [US3] Implement false positive rate calculation: % of signals with wrong direction
-- [ ] T076 [US3] Generate backtest report: `docs/WHALE_FLOW_BACKTEST_REPORT.md` with correlation, false positive rate, charts
+- [X] T076 [US3] Generate backtest report: `docs/WHALE_FLOW_BACKTEST_REPORT.md` with correlation, false positive rate, charts
 
 **Checkpoint GREEN**: Run `python3 scripts/whale_flow_backtest.py --days 7`, verify correlation >0.6
 
@@ -186,7 +186,9 @@
 
 - [ ] T077 [P] Add comprehensive logging to whale_flow_detector.py (DEBUG level for transaction details)
 - [ ] T078 [P] Add retry logic with exponential backoff for electrs API failures (3 retries, 1s/2s/4s delays)
-- [ ] T079 [P] Add connection pooling for electrs HTTP requests (reuse requests.Session)
+- [X] T079 [P] Add connection pooling for electrs HTTP requests (reuse aiohttp.ClientSession) - COMPLETED 2025-11-06
+- [X] T079a [P] PERFORMANCE: Eliminate double address parsing (3x→1x per transaction) - COMPLETED 2025-11-06
+- [X] T079b [P] PERFORMANCE: Reuse Semaphore across batches (avoid recreation overhead) - COMPLETED 2025-11-06
 - [ ] T080 [P] Add performance metrics: execution time per block, avg API latency, memory usage
 - [ ] T081 Create `docs/WHALE_FLOW_DETECTOR.md` documentation (usage guide, API reference, troubleshooting)
 - [ ] T082 Add README section to `examples/whale-flow-references/README.md` linking to production code

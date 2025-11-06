@@ -151,6 +151,27 @@ class HealthStatus(BaseModel):
     )
 
 
+class WhaleFlowData(BaseModel):
+    """Whale flow signal data from latest analysis"""
+
+    timestamp: str
+    whale_net_flow: Optional[float] = Field(
+        default=None,
+        description="Net BTC flow to/from exchanges (+ bearish, - bullish)",
+    )
+    whale_direction: Optional[str] = Field(
+        default=None,
+        description="ACCUMULATION (bullish) | DISTRIBUTION (bearish) | NEUTRAL",
+    )
+    action: Optional[str] = Field(
+        default=None, description="Trading recommendation: BUY | SELL | HOLD"
+    )
+    combined_signal: Optional[float] = Field(
+        default=None,
+        description="Fused signal: whale (70%) + UTXOracle (30%), range: -1.0 to 1.0",
+    )
+
+
 # =============================================================================
 # Database Helper Functions
 # =============================================================================
@@ -357,6 +378,49 @@ async def get_comparison_stats(
 
 
 # =============================================================================
+# GET /api/whale/latest - Whale Flow Data (spec-004)
+# =============================================================================
+
+
+@app.get("/api/whale/latest", response_model=WhaleFlowData)
+async def get_latest_whale_flow():
+    """
+    Get the most recent whale flow signal data.
+
+    Returns:
+        WhaleFlowData: Latest whale flow metrics (net_flow, direction, action, combined_signal)
+    """
+    conn = get_db_connection()
+
+    try:
+        result = conn.execute("""
+            SELECT date AS timestamp, whale_net_flow, whale_direction, action, combined_signal
+            FROM price_analysis
+            WHERE whale_net_flow IS NOT NULL
+            ORDER BY date DESC
+            LIMIT 1
+        """).fetchone()
+
+        if not result:
+            # No whale data available yet
+            raise HTTPException(
+                status_code=404,
+                detail="No whale flow data available yet. Whale detector may not have run.",
+            )
+
+        return WhaleFlowData(
+            timestamp=str(result[0]),
+            whale_net_flow=float(result[1]) if result[1] is not None else None,
+            whale_direction=result[2],
+            action=result[3],
+            combined_signal=float(result[4]) if result[4] is not None else None,
+        )
+
+    finally:
+        conn.close()
+
+
+# =============================================================================
 # T063: GET /health
 # =============================================================================
 
@@ -439,11 +503,12 @@ async def root():
     return {
         "name": "UTXOracle API",
         "version": "1.0.0",
-        "spec": "003-mempool-integration-refactor",
+        "spec": "003-mempool-integration-refactor, 004-whale-flow-detection",
         "endpoints": {
             "latest": "/api/prices/latest",
             "historical": "/api/prices/historical?days=7",
             "comparison": "/api/prices/comparison?days=7",
+            "whale_latest": "/api/whale/latest",
             "health": "/health",
             "docs": "/docs",
         },

@@ -161,6 +161,125 @@
             color: #666;
             font-size: 0.9em;
         }
+
+        /* Whale Flow Indicator Styles (spec-004) */
+        .whale-indicator-container {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #333;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .whale-indicator-title {
+            color: #ff8c00;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+        }
+
+        .whale-indicator-content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+
+        .traffic-light {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid #333;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            transition: all 0.3s ease;
+        }
+
+        .traffic-light.accumulation {
+            background: radial-gradient(circle, #00ff88, #00cc66);
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.6);
+        }
+
+        .traffic-light.distribution {
+            background: radial-gradient(circle, #ff4444, #cc0000);
+            box-shadow: 0 0 30px rgba(255, 68, 68, 0.6);
+        }
+
+        .traffic-light.neutral {
+            background: radial-gradient(circle, #ffaa00, #cc8800);
+            box-shadow: 0 0 30px rgba(255, 170, 0, 0.6);
+        }
+
+        .traffic-light.loading {
+            background: radial-gradient(circle, #555, #333);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        .whale-details {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            text-align: left;
+        }
+
+        .whale-detail-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .whale-detail-label {
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        .whale-detail-value {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .whale-detail-value.bullish {
+            color: #00ff88;
+        }
+
+        .whale-detail-value.bearish {
+            color: #ff4444;
+        }
+
+        .whale-detail-value.neutral {
+            color: #ffaa00;
+        }
+
+        .whale-action {
+            font-size: 1.5em;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .whale-action.buy {
+            color: #00ff88;
+            background: rgba(0, 255, 136, 0.1);
+            border: 2px solid #00ff88;
+        }
+
+        .whale-action.sell {
+            color: #ff4444;
+            background: rgba(255, 68, 68, 0.1);
+            border: 2px solid #ff4444;
+        }
+
+        .whale-action.hold {
+            color: #ffaa00;
+            background: rgba(255, 170, 0, 0.1);
+            border: 2px solid #ffaa00;
+        }
     </style>
 </head>
 <body>
@@ -168,6 +287,29 @@
         <h1>UTXOracle Price Comparison</h1>
         <div class="subtitle">On-Chain vs Exchange Price Analysis</div>
     </header>
+
+    <!-- Whale Flow Indicator (spec-004: T058-T062) -->
+    <div class="whale-indicator-container">
+        <div class="whale-indicator-title">🐋 Whale Flow Signal</div>
+        <div class="whale-indicator-content">
+            <div class="traffic-light loading" id="whaleTrafficLight"></div>
+            <div class="whale-details" id="whaleDetails">
+                <div class="whale-detail-row">
+                    <span class="whale-detail-label">Direction:</span>
+                    <span class="whale-detail-value" id="whaleDirection">Loading...</span>
+                </div>
+                <div class="whale-detail-row">
+                    <span class="whale-detail-label">Net Flow:</span>
+                    <span class="whale-detail-value" id="whaleNetFlow">Loading...</span>
+                </div>
+                <div class="whale-detail-row">
+                    <span class="whale-detail-label">Combined Signal:</span>
+                    <span class="whale-detail-value" id="whaleCombinedSignal">Loading...</span>
+                </div>
+                <div class="whale-action" id="whaleAction">Loading...</div>
+            </div>
+        </div>
+    </div>
 
     <!-- T076: Stats Cards -->
     <div class="stats-container" id="statsContainer">
@@ -204,7 +346,7 @@
 
     <footer>
         <p>UTXOracle - Bitcoin Exchange-Free Price Discovery</p>
-        <p>Spec: 003-mempool-integration-refactor | Phase 4: API & Visualization</p>
+        <p>Spec: 003-mempool-integration-refactor | 004-whale-flow-detection | Phase 4: Dashboard Enhancement</p>
     </footer>
 
     <!-- T074: JavaScript - Fetch data and render chart -->
@@ -364,6 +506,172 @@
             Plotly.newPlot('priceChart', [traceUTX, traceMem], layout, config);
         }
 
+        // T059: Fetch whale flow data from API (spec-004)
+        async function fetchWhaleFlowData() {
+            try {
+                const timestamp = new Date().getTime();
+                const response = await fetch(`${API_BASE_URL}/api/whale/latest?_=${timestamp}`);
+
+                if (response.status === 404) {
+                    // No whale data available yet
+                    return null;
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching whale flow data:', error);
+                throw error;
+            }
+        }
+
+        // T060: Update traffic light indicator (spec-004)
+        function updateTrafficLight(direction) {
+            const trafficLight = document.getElementById('whaleTrafficLight');
+
+            // Remove all classes
+            trafficLight.classList.remove('loading', 'accumulation', 'distribution', 'neutral');
+
+            // Add appropriate class based on direction
+            if (direction === 'ACCUMULATION') {
+                trafficLight.classList.add('accumulation');
+            } else if (direction === 'DISTRIBUTION') {
+                trafficLight.classList.add('distribution');
+            } else {
+                trafficLight.classList.add('neutral');
+            }
+        }
+
+        // T061: Display whale net flow (spec-004)
+        function displayWhaleNetFlow(netFlow, direction) {
+            const netFlowEl = document.getElementById('whaleNetFlow');
+
+            if (netFlow === null || netFlow === undefined) {
+                netFlowEl.textContent = 'N/A';
+                netFlowEl.className = 'whale-detail-value';
+                return;
+            }
+
+            // Format net flow with + or - prefix
+            const formattedFlow = netFlow >= 0 ? `+${netFlow.toFixed(2)}` : `${netFlow.toFixed(2)}`;
+
+            // Color based on direction (negative = outflow = bullish = green)
+            let colorClass = 'neutral';
+            if (direction === 'ACCUMULATION') {
+                colorClass = 'bullish';  // Green
+            } else if (direction === 'DISTRIBUTION') {
+                colorClass = 'bearish';  // Red
+            }
+
+            netFlowEl.textContent = `${formattedFlow} BTC`;
+            netFlowEl.className = `whale-detail-value ${colorClass}`;
+        }
+
+        // T062: Display trading action with color coding (spec-004)
+        function displayTradingAction(action) {
+            const actionEl = document.getElementById('whaleAction');
+
+            if (!action) {
+                actionEl.textContent = 'N/A';
+                actionEl.className = 'whale-action';
+                return;
+            }
+
+            // Remove all action classes
+            actionEl.classList.remove('buy', 'sell', 'hold');
+
+            // Set text and color based on action
+            if (action === 'BUY') {
+                actionEl.textContent = '📈 BUY';
+                actionEl.classList.add('buy');
+            } else if (action === 'SELL') {
+                actionEl.textContent = '📉 SELL';
+                actionEl.classList.add('sell');
+            } else {
+                actionEl.textContent = '⏸️ HOLD';
+                actionEl.classList.add('hold');
+            }
+        }
+
+        // Update all whale flow indicators (spec-004)
+        function updateWhaleFlowIndicators(whaleData) {
+            if (!whaleData) {
+                // No whale data available - show placeholder
+                document.getElementById('whaleDirection').textContent = 'No data yet';
+                document.getElementById('whaleNetFlow').textContent = 'N/A';
+                document.getElementById('whaleCombinedSignal').textContent = 'N/A';
+                document.getElementById('whaleAction').textContent = 'Waiting for whale detector...';
+                document.getElementById('whaleAction').className = 'whale-action';
+
+                const trafficLight = document.getElementById('whaleTrafficLight');
+                trafficLight.classList.remove('loading', 'accumulation', 'distribution', 'neutral');
+                trafficLight.classList.add('loading');
+                return;
+            }
+
+            // T060: Update traffic light
+            updateTrafficLight(whaleData.whale_direction);
+
+            // T061: Update direction display
+            const directionEl = document.getElementById('whaleDirection');
+            directionEl.textContent = whaleData.whale_direction || 'N/A';
+
+            // Color direction text
+            let dirColorClass = 'neutral';
+            if (whaleData.whale_direction === 'ACCUMULATION') {
+                dirColorClass = 'bullish';
+            } else if (whaleData.whale_direction === 'DISTRIBUTION') {
+                dirColorClass = 'bearish';
+            }
+            directionEl.className = `whale-detail-value ${dirColorClass}`;
+
+            // T061: Update net flow display
+            displayWhaleNetFlow(whaleData.whale_net_flow, whaleData.whale_direction);
+
+            // Update combined signal
+            const signalEl = document.getElementById('whaleCombinedSignal');
+            if (whaleData.combined_signal !== null && whaleData.combined_signal !== undefined) {
+                const signalFormatted = whaleData.combined_signal >= 0
+                    ? `+${whaleData.combined_signal.toFixed(2)}`
+                    : `${whaleData.combined_signal.toFixed(2)}`;
+                signalEl.textContent = signalFormatted;
+
+                // Color based on signal value
+                if (whaleData.combined_signal > 0.5) {
+                    signalEl.className = 'whale-detail-value bullish';
+                } else if (whaleData.combined_signal < -0.5) {
+                    signalEl.className = 'whale-detail-value bearish';
+                } else {
+                    signalEl.className = 'whale-detail-value neutral';
+                }
+            } else {
+                signalEl.textContent = 'N/A';
+                signalEl.className = 'whale-detail-value';
+            }
+
+            // T062: Update trading action
+            displayTradingAction(whaleData.action);
+        }
+
+        // Load whale flow data (spec-004)
+        async function loadWhaleFlowData() {
+            try {
+                const whaleData = await fetchWhaleFlowData();
+                updateWhaleFlowIndicators(whaleData);
+            } catch (error) {
+                console.error('Failed to load whale flow data:', error);
+                // Show error state
+                document.getElementById('whaleDirection').textContent = 'Error loading';
+                document.getElementById('whaleNetFlow').textContent = 'Error';
+                document.getElementById('whaleCombinedSignal').textContent = 'Error';
+                document.getElementById('whaleAction').textContent = 'Error: ' + error.message;
+                document.getElementById('whaleAction').className = 'whale-action';
+            }
+        }
+
         // Main data loading function
         async function loadData(days, eventTarget = null) {
             currentDays = days;
@@ -401,6 +709,7 @@
         // Initialize on page load
         window.addEventListener('DOMContentLoaded', () => {
             loadData(7);
+            loadWhaleFlowData();  // spec-004: Load whale flow indicator
         });
     </script>
 </body>

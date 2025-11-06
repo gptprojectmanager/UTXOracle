@@ -180,22 +180,29 @@ class WhaleFlowDetector:
 
     def _calculate_net_flow(
         self, transactions: List[Dict]
-    ) -> Tuple[float, float, float]:
+    ) -> Tuple[float, float, float, Dict[str, Tuple[List[str], List[str]]]]:
         """
         Calculate net BTC flow for a set of transactions.
+
+        PERFORMANCE OPTIMIZED: Also returns parsed addresses to avoid re-parsing.
 
         Args:
             transactions: List of transaction dicts from electrs API
 
         Returns:
-            Tuple of (inflow_btc, outflow_btc, internal_btc)
+            Tuple of (inflow_btc, outflow_btc, internal_btc, address_cache)
+            where address_cache = {txid: (input_addrs, output_addrs)}
         """
         inflow_btc = 0.0
         outflow_btc = 0.0
         internal_btc = 0.0
+        address_cache = {}  # Cache parsed addresses to avoid re-parsing
 
         for tx in transactions:
+            txid = tx.get("txid", "")
             input_addrs, output_addrs = self._parse_addresses(tx)
+            address_cache[txid] = (input_addrs, output_addrs)  # Cache for later use
+
             flow_type, _ = self._classify_transaction(input_addrs, output_addrs)
 
             # Calculate BTC value for this transaction
@@ -225,7 +232,7 @@ class WhaleFlowDetector:
                         if addr in self._exchange_addresses:
                             outflow_btc += value_btc
 
-        return inflow_btc, outflow_btc, internal_btc
+        return inflow_btc, outflow_btc, internal_btc, address_cache
 
     def _determine_direction(self, net_flow_btc: float) -> str:
         """
@@ -285,6 +292,9 @@ class WhaleFlowDetector:
 
             all_transactions = []
 
+            # Create semaphore ONCE for all batches (PERFORMANCE OPTIMIZATION)
+            semaphore = asyncio.Semaphore(concurrent_per_batch)
+
             # Process in batches to avoid overwhelming asyncio.gather()
             for i in range(0, len(txids), batch_size):
                 batch = txids[i : i + batch_size]
@@ -293,9 +303,7 @@ class WhaleFlowDetector:
 
                 logger.debug(f"  Batch {batch_num}/{total_batches}: {len(batch)} txids")
 
-                # Fetch batch with semaphore limiting concurrency
-                semaphore = asyncio.Semaphore(concurrent_per_batch)
-
+                # Fetch batch with semaphore limiting concurrency (reused from above)
                 async def fetch_one(txid: str):
                     async with semaphore:
                         try:
@@ -338,6 +346,8 @@ class WhaleFlowDetector:
         """
         Analyze a list of transactions and generate whale flow signal.
 
+        PERFORMANCE OPTIMIZED: Uses cached address parsing from _calculate_net_flow.
+
         Args:
             transactions: List of transaction dicts
             block_height: Bitcoin block height
@@ -346,22 +356,23 @@ class WhaleFlowDetector:
         Returns:
             WhaleFlowSignal with flow metrics
         """
-        # Calculate flows
-        inflow_btc, outflow_btc, internal_btc = self._calculate_net_flow(transactions)
+        # Calculate flows (returns address cache to avoid re-parsing)
+        inflow_btc, outflow_btc, internal_btc, address_cache = self._calculate_net_flow(
+            transactions
+        )
         net_flow_btc = inflow_btc - outflow_btc
 
         # Determine direction
         direction = self._determine_direction(net_flow_btc)
 
-        # Calculate confidence (simple heuristic for MVP)
+        # Calculate confidence using CACHED addresses (no re-parsing!)
         tx_count_relevant = sum(
             1
             for tx in transactions
-            if any(
+            if (txid := tx.get("txid", "")) in address_cache
+            and any(
                 addr in self._exchange_addresses
-                for addr in (
-                    self._parse_addresses(tx)[0] + self._parse_addresses(tx)[1]
-                )
+                for addr in (address_cache[txid][0] + address_cache[txid][1])
             )
         )
 
@@ -382,9 +393,63 @@ class WhaleFlowDetector:
             timestamp=timestamp,
         )
 
+    async def _analyze_block_with_session(
+        self, session: "aiohttp.ClientSession", block_height: int
+    ) -> WhaleFlowSignal:
+        """
+        Analyze whale flow for a specific Bitcoin block using an existing session (ASYNC).
+
+        PERFORMANCE OPTIMIZED: Reuses aiohttp session instead of creating new one.
+
+        Args:
+            session: Existing aiohttp ClientSession (for connection pooling)
+            block_height: Bitcoin block number
+
+        Returns:
+            WhaleFlowSignal
+
+        Raises:
+            ConnectionError: If electrs unavailable
+            ValueError: If block_height invalid
+            RuntimeError: If analysis fails
+        """
+        try:
+            # Get block hash from height
+            url = f"{ELECTRS_API_URL}/block-height/{block_height}"
+            async with session.get(
+                url, timeout=aiohttp.ClientTimeout(total=10)
+            ) as response:
+                response.raise_for_status()
+                block_hash = (await response.text()).strip()
+
+            # Get block details for timestamp
+            block_url = f"{ELECTRS_API_URL}/block/{block_hash}"
+            async with session.get(
+                block_url, timeout=aiohttp.ClientTimeout(total=10)
+            ) as block_response:
+                block_response.raise_for_status()
+                block_data = await block_response.json()
+                timestamp = block_data.get("timestamp", 0)
+
+            # Fetch transactions (uses same session, async with batching)
+            transactions = await self._fetch_transactions_from_electrs(
+                session, block_hash
+            )
+
+            # Analyze transactions (synchronous analysis)
+            return self._analyze_transactions(transactions, block_height, timestamp)
+
+        except aiohttp.ClientError as e:
+            raise ConnectionError(f"Failed to analyze block {block_height}: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Unexpected error analyzing block {block_height}: {e}")
+
     async def analyze_block(self, block_height: int) -> WhaleFlowSignal:
         """
         Analyze whale flow for a specific Bitcoin block (ASYNC).
+
+        NOTE: For batch analysis, use _analyze_block_with_session() with a shared
+        session for better performance (avoids recreating HTTP connections).
 
         Args:
             block_height: Bitcoin block number
@@ -397,37 +462,9 @@ class WhaleFlowDetector:
             ValueError: If block_height invalid
             RuntimeError: If analysis fails
         """
-        try:
-            async with aiohttp.ClientSession() as session:
-                # Get block hash from height
-                url = f"{ELECTRS_API_URL}/block-height/{block_height}"
-                async with session.get(
-                    url, timeout=aiohttp.ClientTimeout(total=10)
-                ) as response:
-                    response.raise_for_status()
-                    block_hash = (await response.text()).strip()
-
-                # Get block details for timestamp
-                block_url = f"{ELECTRS_API_URL}/block/{block_hash}"
-                async with session.get(
-                    block_url, timeout=aiohttp.ClientTimeout(total=10)
-                ) as block_response:
-                    block_response.raise_for_status()
-                    block_data = await block_response.json()
-                    timestamp = block_data.get("timestamp", 0)
-
-                # Fetch transactions (uses same session, async with batching)
-                transactions = await self._fetch_transactions_from_electrs(
-                    session, block_hash
-                )
-
-            # Analyze transactions (synchronous analysis)
-            return self._analyze_transactions(transactions, block_height, timestamp)
-
-        except aiohttp.ClientError as e:
-            raise ConnectionError(f"Failed to analyze block {block_height}: {e}")
-        except Exception as e:
-            raise RuntimeError(f"Unexpected error analyzing block {block_height}: {e}")
+        # Create temporary session and delegate to optimized method
+        async with aiohttp.ClientSession() as session:
+            return await self._analyze_block_with_session(session, block_height)
 
     async def analyze_latest_block(self) -> WhaleFlowSignal:
         """
