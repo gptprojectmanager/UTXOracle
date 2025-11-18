@@ -8,8 +8,11 @@ Coverage areas:
 """
 
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 import uuid
+
+# Import ServiceCheck for creating proper mock return values
+from api.main import ServiceCheck
 
 
 # =============================================================================
@@ -33,11 +36,11 @@ async def test_health_endpoint_all_services_healthy(client):
         patch("api.main.check_mempool_backend") as mock_mempool,
         patch("api.main.get_db_connection") as mock_db,
     ):
-        # Mock all services as healthy
-        mock_electrs.return_value = AsyncMock(
+        # Mock all services as healthy - return ServiceCheck objects directly
+        mock_electrs.return_value = ServiceCheck(
             status="ok", latency_ms=15.2, last_success="2025-11-18T10:00:00"
         )
-        mock_mempool.return_value = AsyncMock(
+        mock_mempool.return_value = ServiceCheck(
             status="ok", latency_ms=22.5, last_success="2025-11-18T10:00:00"
         )
         mock_db_conn = MagicMock()
@@ -85,8 +88,8 @@ async def test_health_endpoint_database_offline(client):
         patch("api.main.get_db_connection") as mock_db,
     ):
         # Mock healthy external services
-        mock_electrs.return_value = AsyncMock(status="ok", latency_ms=15.2)
-        mock_mempool.return_value = AsyncMock(status="ok", latency_ms=22.5)
+        mock_electrs.return_value = ServiceCheck(status="ok", latency_ms=15.2)
+        mock_mempool.return_value = ServiceCheck(status="ok", latency_ms=22.5)
 
         # Mock database offline
         mock_db.side_effect = Exception("Database connection failed")
@@ -123,10 +126,10 @@ async def test_health_endpoint_electrs_timeout(client):
         mock_db.return_value = mock_db_conn
 
         # Mock mempool backend healthy
-        mock_mempool.return_value = AsyncMock(status="ok", latency_ms=22.5)
+        mock_mempool.return_value = ServiceCheck(status="ok", latency_ms=22.5)
 
         # Mock electrs timing out
-        mock_electrs.return_value = AsyncMock(
+        mock_electrs.return_value = ServiceCheck(
             status="timeout", error="Request timeout (>2s)"
         )
 
@@ -156,10 +159,10 @@ async def test_health_endpoint_latency_tracking(client):
         patch("api.main.get_db_connection") as mock_db,
     ):
         # Mock all services with latency
-        mock_electrs.return_value = AsyncMock(
+        mock_electrs.return_value = ServiceCheck(
             status="ok", latency_ms=12.34, last_success="2025-11-18T10:00:00"
         )
-        mock_mempool.return_value = AsyncMock(
+        mock_mempool.return_value = ServiceCheck(
             status="ok", latency_ms=45.67, last_success="2025-11-18T10:00:00"
         )
         mock_db_conn = MagicMock()
@@ -257,8 +260,8 @@ async def test_health_endpoint_handles_malformed_db_response(client):
         patch("api.main.get_db_connection") as mock_db,
     ):
         # Mock healthy external services
-        mock_electrs.return_value = AsyncMock(status="ok", latency_ms=15.2)
-        mock_mempool.return_value = AsyncMock(status="ok", latency_ms=22.5)
+        mock_electrs.return_value = ServiceCheck(status="ok", latency_ms=15.2)
+        mock_mempool.return_value = ServiceCheck(status="ok", latency_ms=22.5)
 
         # Mock database returning unexpected data
         mock_db_conn = MagicMock()

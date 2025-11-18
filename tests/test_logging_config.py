@@ -300,10 +300,13 @@ async def test_middleware_with_case_insensitive_header():
     # Mock request with lowercase header
     request = MagicMock(spec=Request)
     # Simulate case-insensitive header access (Starlette does this)
-    request.headers = {"x-correlation-id": "test-lower-123"}
-    request.headers.get = (
-        lambda key: "test-lower-123" if key.lower() == "x-correlation-id" else None
+    mock_headers = MagicMock()
+    mock_headers.get = MagicMock(
+        side_effect=lambda key: "test-lower-123"
+        if key.lower() == "x-correlation-id"
+        else None
     )
+    request.headers = mock_headers
     request.state = MagicMock()
 
     async def mock_call_next(req):
