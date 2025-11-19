@@ -8,6 +8,10 @@ Spec: 003-mempool-integration-refactor
 Phase: 4 - API & Visualization
 Tasks: T058-T065
 
+Spec: 005-mempool-whale-realtime
+Phase: 5 - Dashboard
+Tasks: T036 - Whale detection REST API endpoints
+
 Security: T036a/b - JWT Authentication Required
 """
 
@@ -195,6 +199,19 @@ if FRONTEND_DIR.exists():
 
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
     logging.info(f"Frontend mounted at /static from {FRONTEND_DIR}")
+
+# =============================================================================
+# T036: Include Whale Detection REST API Router
+# =============================================================================
+
+try:
+    from mempool_whale_endpoints import router as whale_router
+
+    app.include_router(whale_router)
+    logging.info("✅ Whale detection API endpoints registered at /api/whale/*")
+except ImportError as e:
+    logging.warning(f"⚠️ Whale detection endpoints not available: {e}")
+    logging.warning("   Install mempool_whale_endpoints.py to enable whale API")
 
 # =============================================================================
 # Pydantic Models

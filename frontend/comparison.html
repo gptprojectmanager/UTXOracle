@@ -8,6 +8,9 @@
     <!-- T073: Plotly.js CDN -->
     <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
 
+    <!-- T030a: Authentication Module -->
+    <script src="/js/auth.js"></script>
+
     <!-- T077: CSS Styling - Black background, orange theme -->
     <style>
         * {
@@ -280,12 +283,270 @@
             background: rgba(255, 170, 0, 0.1);
             border: 2px solid #ffaa00;
         }
+
+        /* T030b: Logout Button */
+        .logout-btn {
+            padding: 10px 20px;
+            background: rgba(255, 140, 0, 0.1);
+            border: 2px solid #ff8c00;
+            border-radius: 6px;
+            color: #ff8c00;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 140, 0, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .logout-btn:active {
+            transform: translateY(0);
+        }
+
+        /* T029: Mempool Whale Predictions Section */
+        .mempool-predictions-container {
+            background: linear-gradient(135deg, rgba(20, 20, 30, 0.95), rgba(10, 10, 20, 0.95));
+            border: 2px solid #ff8c00;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 30px;
+            box-shadow: 0 4px 20px rgba(255, 140, 0, 0.2);
+        }
+
+        .mempool-predictions-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .mempool-predictions-header h2 {
+            color: #ff8c00;
+            font-size: 1.8em;
+            margin: 0;
+        }
+
+        .connection-status {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .connection-status.connected {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+            border: 2px solid #00ff88;
+        }
+
+        .connection-status.disconnected {
+            background: rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+            border: 2px solid #ff4444;
+        }
+
+        .connection-status.connecting {
+            background: rgba(255, 170, 0, 0.2);
+            color: #ffaa00;
+            border: 2px solid #ffaa00;
+        }
+
+        /* T031: Whale Transactions Table */
+        .whale-transactions-table {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        #whaleTransactionsTable {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #whaleTransactionsTable thead {
+            background: rgba(255, 140, 0, 0.1);
+            border-bottom: 2px solid #ff8c00;
+        }
+
+        #whaleTransactionsTable th {
+            padding: 12px 15px;
+            text-align: left;
+            color: #ff8c00;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 1px;
+        }
+
+        #whaleTransactionsTable td {
+            padding: 12px 15px;
+            color: #ddd;
+            border-bottom: 1px solid rgba(255, 140, 0, 0.1);
+        }
+
+        #whaleTransactionsTable tbody tr {
+            transition: all 0.3s;
+        }
+
+        #whaleTransactionsTable tbody tr:hover {
+            background: rgba(255, 140, 0, 0.05);
+        }
+
+        .empty-state td {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            padding: 30px;
+        }
+
+        /* T032: Visual Distinction for Pending/Confirmed */
+        .tx-row.pending {
+            background: rgba(255, 170, 0, 0.05);
+            border-left: 3px solid #ffaa00;
+        }
+
+        .tx-row.confirmed {
+            background: rgba(0, 255, 136, 0.05);
+            border-left: 3px solid #00ff88;
+            opacity: 0.7;
+        }
+
+        /* T033: Status Transition Animations */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes confirmFlash {
+            0% { background: rgba(0, 255, 136, 0.3); }
+            100% { background: rgba(0, 255, 136, 0.05); }
+        }
+
+        .tx-row.new {
+            animation: slideIn 0.5s ease-out;
+        }
+
+        .tx-row.confirming {
+            animation: confirmFlash 1s ease-in-out;
+        }
+
+        /* T034: RBF Modification Indicators */
+        .rbf-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: rgba(255, 170, 0, 0.2);
+            border: 1px solid #ffaa00;
+            border-radius: 4px;
+            color: #ffaa00;
+            font-size: 0.75em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .rbf-badge::before {
+            content: "⚡ ";
+        }
+
+        /* Urgency Score Color Coding */
+        .urgency-high {
+            color: #ff4444;
+            font-weight: 700;
+        }
+
+        .urgency-high::before {
+            content: "🔴 ";
+        }
+
+        .urgency-medium {
+            color: #ffaa00;
+            font-weight: 600;
+        }
+
+        .urgency-medium::before {
+            content: "🟡 ";
+        }
+
+        .urgency-low {
+            color: #00ff88;
+            font-weight: 500;
+        }
+
+        .urgency-low::before {
+            content: "🟢 ";
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.pending {
+            background: rgba(255, 170, 0, 0.2);
+            color: #ffaa00;
+            border: 1px solid #ffaa00;
+        }
+
+        .status-badge.confirmed {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+            border: 1px solid #00ff88;
+        }
+
+        .status-badge.dropped {
+            background: rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+            border: 1px solid #ff4444;
+        }
+
+        /* Transaction ID Truncation */
+        .tx-id {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #aaa;
+        }
+
+        .tx-id a {
+            color: #ff8c00;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .tx-id a:hover {
+            color: #ffa500;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
     <header>
-        <h1>UTXOracle Price Comparison</h1>
-        <div class="subtitle">On-Chain vs Exchange Price Analysis</div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1>UTXOracle Price Comparison</h1>
+                <div class="subtitle">On-Chain vs Exchange Price Analysis</div>
+            </div>
+            <button id="logoutBtn" class="logout-btn" onclick="authManager.logout()" title="Logout">
+                🔓 Logout
+            </button>
+        </div>
     </header>
 
     <!-- Whale Flow Indicator (spec-004: T058-T062) -->
@@ -308,6 +569,35 @@
                 </div>
                 <div class="whale-action" id="whaleAction">Loading...</div>
             </div>
+        </div>
+    </div>
+
+    <!-- T029: Mempool Whale Predictions (spec-005) -->
+    <div class="mempool-predictions-container">
+        <div class="mempool-predictions-header">
+            <h2>🌊 Real-time Mempool Whale Transactions</h2>
+            <div class="connection-status" id="wsStatus">Connecting...</div>
+        </div>
+
+        <!-- T031: Pending Transactions Table -->
+        <div class="whale-transactions-table">
+            <table id="whaleTransactionsTable">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>TX ID</th>
+                        <th>BTC Value</th>
+                        <th>Fee Rate</th>
+                        <th>Urgency</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="whaleTransactionsBody">
+                    <tr class="empty-state">
+                        <td colspan="6">Waiting for whale transactions...</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -351,16 +641,32 @@
 
     <!-- T074: JavaScript - Fetch data and render chart -->
     <script>
+        // =================================================================
+        // T030b: Authentication Check - Protect Dashboard
+        // =================================================================
+
+        // Check authentication before loading dashboard
+        if (!authManager.isAuthenticated() || authManager.isTokenExpired()) {
+            console.warn('Not authenticated - redirecting to login');
+            authManager.redirectToLogin();
+            // Stop execution - page will redirect
+            throw new Error('Authentication required');
+        }
+
+        console.log('✅ User authenticated:', authManager.getTokenInfo());
+
         // API Configuration
         const API_BASE_URL = 'http://localhost:8001';
         let currentDays = 7;
 
-        // T074: Fetch data from API
+        // T074: Fetch data from API (T030b: Using authenticated fetch)
         async function fetchHistoricalData(days) {
             try {
                 // Add timestamp to prevent caching
                 const timestamp = new Date().getTime();
-                const response = await fetch(`${API_BASE_URL}/api/prices/historical?days=${days}&_=${timestamp}`);
+                const response = await authManager.authenticatedFetch(
+                    `${API_BASE_URL}/api/prices/historical?days=${days}&_=${timestamp}`
+                );
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
@@ -375,7 +681,9 @@
             try {
                 // Add timestamp to prevent caching
                 const timestamp = new Date().getTime();
-                const response = await fetch(`${API_BASE_URL}/api/prices/comparison?days=${days}&_=${timestamp}`);
+                const response = await authManager.authenticatedFetch(
+                    `${API_BASE_URL}/api/prices/comparison?days=${days}&_=${timestamp}`
+                );
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
@@ -706,10 +1014,247 @@
             }
         }
 
+        // =================================================================
+        // T029 + T031: Mempool Whale Predictions WebSocket
+        // =================================================================
+
+        class WhaleTransactionManager {
+            constructor() {
+                this.ws = null;
+                this.transactions = new Map(); // txid -> transaction data
+                this.reconnectAttempts = 0;
+                this.maxReconnectAttempts = 10;
+                this.reconnectDelay = 1000; // Start with 1 second
+                this.statusElement = document.getElementById('wsStatus');
+                this.tableBody = document.getElementById('whaleTransactionsBody');
+            }
+
+            async connect() {
+                try {
+                    // Get JWT token for authentication
+                    const token = authManager.getToken();
+                    if (!token) {
+                        console.error('No authentication token available');
+                        this.updateStatus('disconnected');
+                        return;
+                    }
+
+                    // WebSocket URL (adjust port if needed)
+                    const wsUrl = 'ws://localhost:8001/ws/whale-alerts';
+
+                    this.updateStatus('connecting');
+                    console.log('Connecting to whale alerts WebSocket...');
+
+                    this.ws = new WebSocket(wsUrl);
+
+                    this.ws.onopen = () => {
+                        console.log('✅ WebSocket connected - sending auth');
+                        // Send authentication token
+                        this.ws.send(JSON.stringify({
+                            type: 'auth',
+                            token: token
+                        }));
+                        this.reconnectAttempts = 0;
+                        this.reconnectDelay = 1000;
+                    };
+
+                    this.ws.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            this.handleMessage(data);
+                        } catch (error) {
+                            console.error('Error parsing WebSocket message:', error);
+                        }
+                    };
+
+                    this.ws.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                        this.updateStatus('disconnected');
+                    };
+
+                    this.ws.onclose = () => {
+                        console.log('WebSocket closed');
+                        this.updateStatus('disconnected');
+                        this.attemptReconnect();
+                    };
+
+                } catch (error) {
+                    console.error('Error connecting to WebSocket:', error);
+                    this.updateStatus('disconnected');
+                    this.attemptReconnect();
+                }
+            }
+
+            handleMessage(data) {
+                if (data.type === 'welcome') {
+                    console.log('✅ Authenticated with WebSocket:', data.message);
+                    this.updateStatus('connected');
+                } else if (data.type === 'whale_alert') {
+                    console.log('🐋 New whale transaction:', data);
+                    this.addTransaction(data);
+                } else if (data.type === 'status_update') {
+                    console.log('🔄 Transaction status update:', data);
+                    this.updateTransactionStatus(data);
+                } else if (data.type === 'error') {
+                    console.error('WebSocket error:', data.message);
+                }
+            }
+
+            addTransaction(data) {
+                const txid = data.transaction_id;
+
+                // Remove empty state if present
+                const emptyState = this.tableBody.querySelector('.empty-state');
+                if (emptyState) {
+                    emptyState.remove();
+                }
+
+                // Store transaction
+                this.transactions.set(txid, {
+                    ...data,
+                    status: 'pending',
+                    addedAt: Date.now()
+                });
+
+                // Create row
+                const row = this.createTransactionRow(data);
+
+                // Insert at top (most recent first)
+                this.tableBody.insertBefore(row, this.tableBody.firstChild);
+
+                // T033: Add slide-in animation
+                row.classList.add('new');
+                setTimeout(() => row.classList.remove('new'), 500);
+
+                // Limit table to 50 rows
+                while (this.tableBody.children.length > 50) {
+                    const lastRow = this.tableBody.lastChild;
+                    const lastTxid = lastRow.dataset.txid;
+                    this.transactions.delete(lastTxid);
+                    lastRow.remove();
+                }
+            }
+
+            createTransactionRow(data) {
+                const row = document.createElement('tr');
+                row.className = 'tx-row pending';
+                row.dataset.txid = data.transaction_id;
+
+                // Format timestamp
+                const time = new Date(data.detection_timestamp).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+
+                // Truncate transaction ID
+                const shortTxid = data.transaction_id.substring(0, 8) + '...';
+
+                // Urgency class
+                let urgencyClass = 'urgency-low';
+                if (data.urgency_score >= 0.7) urgencyClass = 'urgency-high';
+                else if (data.urgency_score >= 0.4) urgencyClass = 'urgency-medium';
+
+                // RBF badge (T034)
+                const rbfBadge = data.rbf_enabled ? '<span class="rbf-badge">RBF</span>' : '';
+
+                row.innerHTML = `
+                    <td>${time}</td>
+                    <td class="tx-id">
+                        <a href="https://mempool.space/tx/${data.transaction_id}" target="_blank" title="${data.transaction_id}">
+                            ${shortTxid}
+                        </a>
+                    </td>
+                    <td>${data.btc_value.toFixed(2)} BTC</td>
+                    <td>${data.fee_rate.toFixed(1)} sat/vB ${rbfBadge}</td>
+                    <td class="${urgencyClass}">${data.urgency_score.toFixed(2)}</td>
+                    <td><span class="status-badge pending">Pending</span></td>
+                `;
+
+                return row;
+            }
+
+            // T032 + T033: Update transaction status with visual transition
+            updateTransactionStatus(data) {
+                const txid = data.transaction_id;
+                const row = this.tableBody.querySelector(`tr[data-txid="${txid}"]`);
+
+                if (!row) return;
+
+                const tx = this.transactions.get(txid);
+                if (!tx) return;
+
+                // Update transaction data
+                tx.status = data.status;
+                this.transactions.set(txid, tx);
+
+                // T033: Add confirmation animation
+                row.classList.add('confirming');
+                setTimeout(() => row.classList.remove('confirming'), 1000);
+
+                // T032: Update visual state
+                if (data.status === 'confirmed') {
+                    row.classList.remove('pending');
+                    row.classList.add('confirmed');
+
+                    const statusBadge = row.querySelector('.status-badge');
+                    statusBadge.className = 'status-badge confirmed';
+                    statusBadge.textContent = 'Confirmed';
+                } else if (data.status === 'dropped') {
+                    const statusBadge = row.querySelector('.status-badge');
+                    statusBadge.className = 'status-badge dropped';
+                    statusBadge.textContent = 'Dropped';
+                }
+            }
+
+            updateStatus(status) {
+                this.statusElement.className = `connection-status ${status}`;
+                if (status === 'connected') {
+                    this.statusElement.textContent = '🟢 Connected';
+                } else if (status === 'connecting') {
+                    this.statusElement.textContent = '🟡 Connecting...';
+                } else {
+                    this.statusElement.textContent = '🔴 Disconnected';
+                }
+            }
+
+            attemptReconnect() {
+                if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+                    console.error('Max reconnection attempts reached');
+                    return;
+                }
+
+                this.reconnectAttempts++;
+                const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 30000);
+
+                console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+
+                setTimeout(() => {
+                    this.connect();
+                }, delay);
+            }
+
+            disconnect() {
+                if (this.ws) {
+                    this.ws.close();
+                    this.ws = null;
+                }
+            }
+        }
+
+        // Initialize whale transaction manager
+        const whaleManager = new WhaleTransactionManager();
+
         // Initialize on page load
         window.addEventListener('DOMContentLoaded', () => {
             loadData(7);
             loadWhaleFlowData();  // spec-004: Load whale flow indicator
+            whaleManager.connect(); // T029: Connect to whale alerts WebSocket
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            whaleManager.disconnect();
         });
     </script>
 </body>
