@@ -104,25 +104,39 @@ This document defines implementation tasks for the real-time mempool whale detec
 
 ### Implementation Tasks:
 
-- [ ] T021 [US2] Create urgency scorer module in scripts/whale_urgency_scorer.py
-  - ⚠️ PARTIAL: UrgencyMetrics data model exists (scripts/models/urgency_metrics.py, 279 lines)
-  - MISSING: Separate orchestrator module whale_urgency_scorer.py
+- [X] T021 [US2] Create urgency scorer module in scripts/whale_urgency_scorer.py
+  - ✅ scripts/whale_urgency_scorer.py (287 lines) - Complete orchestrator module
+  - Fetches real-time fees from mempool.space API (/api/v1/fees/recommended, /api/v1/mempool, /api/blocks/tip/height)
+  - Periodic metrics updates (60s interval) with error handling
+  - Integrates with UrgencyMetrics data model
 - [X] T022 [US2] Implement fee rate to urgency score calculation (0.0-1.0 scale)
   - ✅ UrgencyMetrics.calculate_urgency_score() (lines 121-162)
   - Maps fee to urgency via percentiles: ≤p10=0.0-0.2, p10-p25=0.2-0.4, ..., ≥p90=0.95-1.0
-- [ ] T023 [US2] Add mempool.space fee estimates API integration for dynamic thresholds
-- [ ] T024 [US2] Implement RBF detection and confidence adjustment logic
+- [X] T023 [US2] Add mempool.space fee estimates API integration for dynamic thresholds
+  - ✅ Integrated in T021: WhaleUrgencyScorer.update_metrics()
+  - 3 endpoints: /fees/recommended, /mempool, /blocks/tip/height
+  - Fee percentile mapping from mempool.space tiers
+- [X] T024 [US2] Implement RBF detection and confidence adjustment logic
+  - ✅ scripts/utils/rbf_detector.py (180 lines) - BIP 125 compliant
+  - is_rbf_enabled(): checks sequence numbers < 0xFFFFFFFE
+  - get_rbf_status(): detailed analysis with input-level granularity
 - [X] T025 [US2] Add predicted confirmation block estimation based on fee percentiles
   - ✅ UrgencyMetrics.predict_confirmation_block() (lines 164-186)
   - Logic: ≥p75=high_fee=1 block, ≥p50=medium=3 blocks, <p50=low=6 blocks
-- [ ] T026 [US2] Integrate urgency scoring into whale detection pipeline
-  - ⚠️ PARTIAL: mempool_whale_monitor.py uses urgency scoring (lines 200-220)
-  - MISSING: Full integration with dynamic fee percentiles from mempool.space
+- [X] T026 [US2] Integrate urgency scoring into whale detection pipeline
+  - ✅ scripts/mempool_whale_monitor.py fully integrated
+  - WhaleUrgencyScorer lifecycle management (start/stop)
+  - Real-time urgency calculation with fallback heuristics
+  - Block confirmation prediction added to MempoolWhaleSignal
 - [X] T027 [P] [US2] Create unit tests for urgency calculations in tests/test_mempool_whale/test_urgency_scorer.py
   - ✅ tests/test_mempool_whale/test_urgency_metrics.py (comprehensive test suite)
-- [ ] T028 [P] [US2] Add urgency score display to alert messages
+- [X] T028 [P] [US2] Add urgency score display to alert messages
+  - ✅ Enhanced logging with color-coded labels (🔴 HIGH ≥0.7, 🟡 MEDIUM 0.4-0.7, 🟢 LOW <0.4)
+  - RBF indicator: ⚡RBF badge
+  - Structured format: "🐋 WHALE: X BTC | Fee: Y sat/vB | Urgency: LEVEL (score) RBF"
 
-**Deliverable**: Whale alerts include urgency scores with fee-based confirmation predictions
+**Deliverable**: ✅ COMPLETE - Whale alerts include urgency scores with fee-based confirmation predictions
+**Implementation**: Commit 3fa63d4 (Phase 4 complete: T021, T023, T024, T026, T028)
 
 ---
 
