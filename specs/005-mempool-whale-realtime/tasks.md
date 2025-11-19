@@ -16,18 +16,19 @@ This document defines implementation tasks for the real-time mempool whale detec
 **Phase Completion Status**:
 - Phase 1 (Infrastructure): 5/5 (100%) ✅
 - Phase 2 (Foundation): 5/5 (100%) ✅
-- Phase 3 (Core Detection): 10/10 (100%) ✅
+- Phase 3 (Core Detection): 12/12 (100%) ✅ [includes T018a, T018b variants]
 - Phase 4 (Urgency Scoring): 8/8 (100%) ✅
 - Phase 5 (Dashboard): 12/13 (92.3%) ✅
-- Phase 6 (Correlation): 9/10 (90%) ✅
+- Phase 6 (Correlation): 9/10 (90%) ✅ [includes T042a, T042b, T042c variants]
 - Phase 7 (Degradation): 6/6 (100%) ✅
-- Phase 8 (Polish): 13/19 (68.4%) ✅
+- Phase 8 (Polish): 11/17 (64.7%) ✅ [includes T061-T067 tasks]
 
 ## Phase Organization
 
 - **Phase 1**: Setup & Infrastructure (T001-T005) ✅ COMPLETE (100%)
 - **Phase 2**: Foundational Components (T006-T010) ✅ COMPLETE (100%)
-- **Phase 3**: User Story 1 - Real-time Whale Detection [P1] (T011-T020) ✅ COMPLETE (100%)
+- **Phase 3**: User Story 1 - Real-time Whale Detection [P1] (T011-T020, +T018a/b) ✅ COMPLETE (100%)
+  - 12 tasks total including 2 variants (T018a: JWT auth, T018b: token validation)
 - **Phase 4**: User Story 2 - Fee-based Urgency Scoring [P2] (T021-T028) ✅ COMPLETE (100%)
   - WhaleUrgencyScorer, RBF detection, urgency display, block prediction all integrated
 - **Phase 5**: User Story 3 - Dashboard Visualization [P2] (T029-T037) ✅ NEAR-COMPLETE (92.3%)
@@ -40,8 +41,9 @@ This document defines implementation tasks for the real-time mempool whale detec
   - Pending: T043 (correlation metrics UI) - optional enhancement
 - **Phase 7**: User Story 5 - Graceful Degradation [P3] (T045-T050) ✅ COMPLETE (100%)
   - Implemented as Resilience Layer (T064-T067)
-- **Phase 8**: Polish & Cross-Cutting Concerns (T051-T067) ✅ NEAR-COMPLETE (68.4%)
-  - Polish P2 + Resilience complete (T061-T067), webhooks/docs/metrics missing
+- **Phase 8**: Polish & Cross-Cutting Concerns (T051-T067) ✅ NEAR-COMPLETE (64.7%)
+  - 11/17 tasks complete: T051-T052, T054-T055 (polish), T061-T067 (resilience)
+  - Pending: T053 (metrics), T056-T060 (webhook system - 5 tasks)
 
 ---
 
