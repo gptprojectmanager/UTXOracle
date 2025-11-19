@@ -37,6 +37,8 @@ from scripts.utils.websocket_reconnect import WebSocketReconnector
 from scripts.utils.transaction_cache import TransactionCache
 from scripts.config.mempool_config import get_config
 from scripts.utils.db_retry import with_db_retry
+from scripts.utils.rbf_detector import is_rbf_enabled
+from scripts.whale_urgency_scorer import WhaleUrgencyScorer
 
 import duckdb
 
@@ -100,6 +102,12 @@ class MempoolWhaleMonitor:
         # Broadcaster reference (will be set externally)
         self.broadcaster = None
 
+        # Urgency scorer (for fee-based urgency calculation)
+        self.urgency_scorer = WhaleUrgencyScorer(
+            mempool_api_url=config.infrastructure.mempool_api_url,
+            update_interval_seconds=60,
+        )
+
         logger.info("Mempool whale monitor initialized")
         logger.info(f"Whale threshold: {whale_threshold_btc} BTC")
         logger.info(f"Database: {self.db_path}")
@@ -143,10 +151,22 @@ class MempoolWhaleMonitor:
                 logger.debug(f"Transaction {tx_data['txid'][:8]}... already processed")
                 return
 
+            # Format urgency for display
+            urgency = tx_data["urgency_score"]
+            if urgency >= 0.7:
+                urgency_label = "🔴 HIGH"
+            elif urgency >= 0.4:
+                urgency_label = "🟡 MEDIUM"
+            else:
+                urgency_label = "🟢 LOW"
+
+            # Format RBF status
+            rbf_indicator = "⚡RBF" if tx_data["rbf_enabled"] else ""
+
             logger.info(
-                f"🐋 WHALE DETECTED: {tx_data['btc_value']:.2f} BTC "
-                f"(fee: {tx_data['fee_rate']:.1f} sat/vB, "
-                f"urgency: {tx_data['urgency_score']:.2f})"
+                f"🐋 WHALE DETECTED: {tx_data['btc_value']:.2f} BTC | "
+                f"Fee: {tx_data['fee_rate']:.1f} sat/vB | "
+                f"Urgency: {urgency_label} ({urgency:.2f}) {rbf_indicator}"
             )
 
             # Create whale signal
@@ -195,10 +215,18 @@ class MempoolWhaleMonitor:
             fee_rate = fee_sats / vsize if vsize > 0 else 0
             btc_value = value_sats / 100_000_000  # Satoshis to BTC
 
-            # RBF detection
-            rbf_enabled = data.get("rbf", False) or data.get(
+            # RBF detection (BIP 125 compliant)
+            # First try mempool.space's rbf field, otherwise check sequence numbers
+            rbf_from_api = data.get("rbf", False) or data.get(
                 "bip125-replaceable", False
             )
+
+            # For proper BIP 125 detection, check sequence numbers if transaction has vin
+            if "vin" in data and len(data.get("vin", [])) > 0:
+                rbf_enabled = is_rbf_enabled(data)
+            else:
+                # Fallback to API field if no input data available
+                rbf_enabled = rbf_from_api
 
             # Calculate urgency score (fee-based)
             urgency_score = self._calculate_urgency_score(fee_rate)
@@ -218,12 +246,10 @@ class MempoolWhaleMonitor:
 
     def _calculate_urgency_score(self, fee_rate: float) -> float:
         """
-        Calculate urgency score based on fee rate
+        Calculate urgency score based on current mempool fee market conditions
 
-        Simple heuristic:
-        - <10 sat/vB: Low urgency (0.0-0.3)
-        - 10-50 sat/vB: Medium urgency (0.3-0.7)
-        - >50 sat/vB: High urgency (0.7-1.0)
+        Uses WhaleUrgencyScorer which fetches real-time fee estimates from
+        mempool.space and calculates urgency relative to current percentiles.
 
         Args:
             fee_rate: Transaction fee rate in sat/vB
@@ -231,15 +257,18 @@ class MempoolWhaleMonitor:
         Returns:
             Urgency score between 0.0 and 1.0
         """
-        if fee_rate < 10:
-            # Low urgency: scale 0-10 sat/vB to 0.0-0.3
-            return min(0.3, (fee_rate / 10) * 0.3)
-        elif fee_rate < 50:
-            # Medium urgency: scale 10-50 sat/vB to 0.3-0.7
-            return 0.3 + ((fee_rate - 10) / 40) * 0.4
-        else:
-            # High urgency: scale 50-100+ sat/vB to 0.7-1.0
-            return min(1.0, 0.7 + ((fee_rate - 50) / 50) * 0.3)
+        try:
+            # Use real-time fee market data for urgency calculation
+            return self.urgency_scorer.calculate_urgency(fee_rate)
+        except RuntimeError:
+            # Fallback: If metrics not initialized yet, use simple heuristic
+            logger.warning("Urgency metrics not initialized, using fallback heuristic")
+            if fee_rate < 10:
+                return min(0.3, (fee_rate / 10) * 0.3)
+            elif fee_rate < 50:
+                return 0.3 + ((fee_rate - 10) / 40) * 0.4
+            else:
+                return min(1.0, 0.7 + ((fee_rate - 50) / 50) * 0.3)
 
     async def _create_whale_signal(self, tx_data: Dict[str, Any]) -> MempoolWhaleSignal:
         """
@@ -258,6 +287,16 @@ class MempoolWhaleMonitor:
         # TODO: Implement exchange address detection for proper classification
         flow_type = FlowType.UNKNOWN
 
+        # Predict confirmation block based on fee rate
+        try:
+            predicted_block = self.urgency_scorer.predict_confirmation_block(
+                tx_data["fee_rate"]
+            )
+        except RuntimeError:
+            # Fallback if metrics not initialized
+            predicted_block = None
+            logger.warning("Cannot predict confirmation block: metrics not initialized")
+
         # Create signal
         signal = MempoolWhaleSignal(
             prediction_id=prediction_id,
@@ -268,7 +307,7 @@ class MempoolWhaleMonitor:
             urgency_score=tx_data["urgency_score"],
             rbf_enabled=tx_data["rbf_enabled"],
             detection_timestamp=datetime.now(timezone.utc),
-            predicted_confirmation_block=None,  # TODO: Estimate based on fee
+            predicted_confirmation_block=predicted_block,
             exchange_addresses=[],  # TODO: Detect exchange addresses
             confidence_score=None,  # TODO: Calculate classification confidence
         )
@@ -358,12 +397,24 @@ class MempoolWhaleMonitor:
     async def start(self):
         """Start the mempool whale monitor"""
         logger.info("🚀 Starting mempool whale monitor...")
+
+        # Start urgency scorer (fee metrics updates)
+        await self.urgency_scorer.start()
+        logger.info("✅ Urgency scorer started")
+
+        # Start WebSocket connection
         await self.reconnector.start()
 
     async def stop(self):
         """Stop the mempool whale monitor"""
         logger.info("🛑 Stopping mempool whale monitor...")
+
+        # Stop WebSocket connection
         await self.reconnector.stop()
+
+        # Stop urgency scorer
+        await self.urgency_scorer.stop()
+        logger.info("✅ Urgency scorer stopped")
 
     def get_stats(self) -> Dict[str, Any]:
         """Get monitor statistics"""
