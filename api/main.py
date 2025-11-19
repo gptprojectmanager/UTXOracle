@@ -267,6 +267,14 @@ class HealthStatus(BaseModel):
         default_factory=dict, description="Individual service health checks"
     )
 
+    # T035: Memory usage indicator
+    memory_mb: Optional[float] = Field(
+        default=None, description="Current process memory usage in MB"
+    )
+    memory_percent: Optional[float] = Field(
+        default=None, description="Memory usage as percentage of configured max"
+    )
+
     # Backward compatibility fields
     database: str
     gaps_detected: Optional[int] = Field(
@@ -697,6 +705,19 @@ async def health_check():
         check_electrs_connectivity(), check_mempool_backend()
     )
 
+    # T035: Calculate memory usage
+    memory_mb = None
+    memory_percent = None
+    try:
+        process = psutil.Process()
+        memory_info = process.memory_info()
+        memory_mb = round(memory_info.rss / 1024 / 1024, 2)  # Convert to MB
+        # Assume 512MB as default max (configurable in production)
+        max_memory_mb = int(os.getenv("MAX_MEMORY_MB", "512"))
+        memory_percent = round((memory_mb / max_memory_mb) * 100, 1)
+    except Exception as e:
+        logging.warning(f"Failed to get memory usage: {e}")
+
     # Build checks dictionary
     checks = {
         "database": db_check,
@@ -722,6 +743,9 @@ async def health_check():
         uptime_seconds=uptime,
         started_at=STARTUP_TIME.isoformat(),
         checks=checks,
+        # T035: Memory usage
+        memory_mb=memory_mb,
+        memory_percent=memory_percent,
         # Backward compatibility
         database=db_status,
         gaps_detected=gaps_count if gaps_count > 0 else None,

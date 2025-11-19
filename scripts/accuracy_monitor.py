@@ -369,19 +369,86 @@ class AccuracyMonitor:
         }
 
 
-# Example alert callback
+# T042c: Webhook/Email alert callback
 async def example_alert_callback(alert_data: Dict[str, Any]):
     """
-    Example alert callback function
+    Alert callback with webhook and email support
 
-    In production, this would:
-    - Send webhook notification
-    - Send email to operators
-    - Create PagerDuty incident
-    - Post to Slack channel
+    Sends accuracy degradation alerts via:
+    - Webhook POST (if ALERT_WEBHOOK_URL configured)
+    - Email SMTP (if ALERT_EMAIL_TO configured)
     """
+    import aiohttp
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
     logger.info(f"Alert callback triggered: {alert_data}")
-    # TODO: Implement webhook/email notifications (T042c)
+
+    # Webhook notification
+    webhook_url = os.getenv("ALERT_WEBHOOK_URL")
+    if webhook_url:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    webhook_url,
+                    json={
+                        "alert_type": "accuracy_degradation",
+                        "level": alert_data["level"],
+                        "window": alert_data["window"],
+                        "accuracy": f"{alert_data['accuracy']:.1%}",
+                        "threshold": f"{alert_data['threshold']:.1%}",
+                        "sample_size": alert_data["sample_size"],
+                        "timestamp": alert_data["timestamp"].isoformat(),
+                    },
+                    timeout=aiohttp.ClientTimeout(total=5),
+                ) as resp:
+                    if resp.status == 200:
+                        logger.info(f"Webhook notification sent to {webhook_url}")
+                    else:
+                        logger.warning(f"Webhook failed: {resp.status}")
+        except Exception as e:
+            logger.error(f"Failed to send webhook: {e}")
+
+    # Email notification
+    email_to = os.getenv("ALERT_EMAIL_TO")
+    if email_to:
+        try:
+            smtp_host = os.getenv("SMTP_HOST", "localhost")
+            smtp_port = int(os.getenv("SMTP_PORT", "25"))
+            smtp_user = os.getenv("SMTP_USER")
+            smtp_pass = os.getenv("SMTP_PASS")
+            email_from = os.getenv("ALERT_EMAIL_FROM", "utxoracle@localhost")
+
+            msg = MIMEMultipart()
+            msg["From"] = email_from
+            msg["To"] = email_to
+            msg["Subject"] = (
+                f"[UTXOracle] Accuracy Alert ({alert_data['level'].upper()})"
+            )
+
+            body = f"""
+Accuracy Alert - UTXOracle Whale Detector
+
+Level: {alert_data["level"].upper()}
+Window: {alert_data["window"]}
+Current Accuracy: {alert_data["accuracy"]:.1%}
+Threshold: {alert_data["threshold"]:.1%}
+Sample Size: {alert_data["sample_size"]}
+Timestamp: {alert_data["timestamp"].isoformat()}
+
+Action Required: Check system logs and correlation tracking for details.
+"""
+            msg.attach(MIMEText(body, "plain"))
+
+            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                if smtp_user and smtp_pass:
+                    server.starttls()
+                    server.login(smtp_user, smtp_pass)
+                server.send_message(msg)
+                logger.info(f"Email notification sent to {email_to}")
+        except Exception as e:
+            logger.error(f"Failed to send email: {e}")
 
 
 # Example usage / entry point

@@ -619,6 +619,11 @@
             <div class="stat-label">Avg % Difference</div>
             <div class="stat-value" id="avgDiffPercent">Loading...</div>
         </div>
+        <!-- T035: Memory Usage Indicator -->
+        <div class="stat-card">
+            <div class="stat-label">Memory Usage</div>
+            <div class="stat-value" id="memoryUsage">Loading...</div>
+        </div>
     </div>
 
     <!-- Timeframe Controls -->
@@ -980,6 +985,59 @@
             }
         }
 
+        // T035: Fetch and display memory usage
+        async function loadMemoryUsage() {
+            try {
+                const timestamp = new Date().getTime();
+                const response = await authManager.authenticatedFetch(
+                    `${API_BASE_URL}/health?_=${timestamp}`
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const healthData = await response.json();
+                updateMemoryDisplay(healthData);
+
+            } catch (error) {
+                console.error('Failed to load memory usage:', error);
+                document.getElementById('memoryUsage').textContent = 'Error';
+                document.getElementById('memoryUsage').className = 'stat-value';
+            }
+        }
+
+        // T035: Update memory display with color coding
+        function updateMemoryDisplay(healthData) {
+            const memoryEl = document.getElementById('memoryUsage');
+
+            if (healthData.memory_mb === null || healthData.memory_mb === undefined) {
+                memoryEl.textContent = 'N/A';
+                memoryEl.className = 'stat-value';
+                return;
+            }
+
+            // Display memory in MB with percentage
+            const memoryText = healthData.memory_percent !== null
+                ? `${healthData.memory_mb} MB (${healthData.memory_percent}%)`
+                : `${healthData.memory_mb} MB`;
+
+            memoryEl.textContent = memoryText;
+
+            // Color code based on percentage
+            if (healthData.memory_percent !== null) {
+                if (healthData.memory_percent >= 90) {
+                    memoryEl.className = 'stat-value negative'; // Red for critical
+                } else if (healthData.memory_percent >= 75) {
+                    memoryEl.className = 'stat-value'; // Orange (default) for warning
+                } else {
+                    memoryEl.className = 'stat-value positive'; // Green for healthy
+                }
+            } else {
+                memoryEl.className = 'stat-value';
+            }
+        }
+
         // Main data loading function
         async function loadData(days, eventTarget = null) {
             currentDays = days;
@@ -1249,6 +1307,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             loadData(7);
             loadWhaleFlowData();  // spec-004: Load whale flow indicator
+            loadMemoryUsage();    // T035: Load memory usage indicator
             whaleManager.connect(); // T029: Connect to whale alerts WebSocket
         });
 
