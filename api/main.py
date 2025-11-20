@@ -351,18 +351,17 @@ def row_to_dict(row, columns) -> Dict:
 
 
 @app.get("/api/prices/latest", response_model=PriceEntry)
-async def get_latest_price(auth: AuthToken = Depends(require_auth)):
+async def get_latest_price():
     """
     Get the most recent price comparison entry.
 
-    **Authentication Required:** JWT token with 'read' permission
+    **Public Endpoint:** No authentication required
 
     Returns:
         PriceEntry: Latest price data from database
 
     Raises:
-        401: Missing or invalid authentication token
-        429: Rate limit exceeded
+        404: No price data available
     """
     conn = get_db_connection()
 
@@ -410,7 +409,6 @@ async def get_latest_price(auth: AuthToken = Depends(require_auth)):
 
 @app.get("/api/prices/historical", response_model=List[PriceEntry])
 async def get_historical_prices(
-    auth: AuthToken = Depends(require_auth),
     days: int = Query(
         default=7,
         ge=1,
@@ -420,6 +418,8 @@ async def get_historical_prices(
 ):
     """
     Get historical price comparison data.
+
+    **Public Endpoint:** No authentication required
 
     Args:
         days: Number of days to retrieve (1-365, default: 7)
@@ -476,13 +476,14 @@ async def get_historical_prices(
 
 @app.get("/api/prices/comparison", response_model=ComparisonStats)
 async def get_comparison_stats(
-    auth: AuthToken = Depends(require_auth),
     days: int = Query(
         default=7, ge=1, le=365, description="Number of days for statistics calculation"
     ),
 ):
     """
     Get statistical comparison metrics between UTXOracle and exchange prices.
+
+    **Public Endpoint:** No authentication required
 
     Args:
         days: Number of days to calculate stats for (1-365, default: 7)

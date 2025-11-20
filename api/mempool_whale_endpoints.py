@@ -12,12 +12,15 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from pydantic import BaseModel
 import duckdb
-from pathlib import Path
+import os
 
 router = APIRouter(prefix="/api/whale", tags=["whale-detection"])
 
-# Database path (TODO: Move to config)
-DB_PATH = Path(__file__).parent.parent / "data" / "mempool_whale.duckdb"
+# Database path - configurable via environment variable
+# Default: production database path used by whale orchestrator
+DB_PATH = os.getenv(
+    "WHALE_DB_PATH", "/media/sam/2TB-NVMe/prod/apps/utxoracle/data/utxoracle_cache.db"
+)
 
 
 class WhaleTransactionResponse(BaseModel):
