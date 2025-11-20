@@ -865,6 +865,39 @@ def save_to_duckdb(data: Dict, db_path: str, backup_path: str) -> None:
     try:
         # Attempt primary write
         with duckdb.connect(db_path) as conn:
+            # Check existing data to prevent overwriting better quality data
+            date_to_check = values[0]
+            existing = conn.execute(
+                "SELECT confidence, is_valid FROM price_analysis WHERE date = ?",
+                [date_to_check],
+            ).fetchone()
+
+            # Only insert if: (1) no existing data OR (2) new data has better/equal confidence
+            if existing:
+                existing_confidence = existing[0]
+                existing_is_valid = existing[1]
+                new_confidence = values[5]  # confidence is 6th value (index 5)
+                new_is_valid = values[7]  # is_valid is 8th value (index 7)
+
+                # Skip if existing data is valid and new data is invalid
+                if existing_is_valid and not new_is_valid:
+                    logging.warning(
+                        f"Skipping update for {date_to_check}: "
+                        f"Existing valid data (confidence={existing_confidence:.2f}) "
+                        f"not replaced with invalid data (confidence={new_confidence:.2f})"
+                    )
+                    return
+
+                # Skip if existing has better confidence
+                if existing_confidence > new_confidence:
+                    logging.info(
+                        f"Skipping update for {date_to_check}: "
+                        f"Existing confidence {existing_confidence:.2f} > "
+                        f"new confidence {new_confidence:.2f}"
+                    )
+                    return
+
+            # Proceed with insert/update
             conn.execute(insert_sql, values)
         logging.info(f"Data saved to {db_path}")
 
@@ -891,6 +924,34 @@ def save_to_duckdb(data: Dict, db_path: str, backup_path: str) -> None:
                     combined_signal REAL
                 )
                 """)
+
+                # Apply same "keep best" logic to backup
+                date_to_check = values[0]
+                existing = conn.execute(
+                    "SELECT confidence, is_valid FROM price_analysis WHERE date = ?",
+                    [date_to_check],
+                ).fetchone()
+
+                if existing:
+                    existing_confidence = existing[0]
+                    existing_is_valid = existing[1]
+                    new_confidence = values[5]
+                    new_is_valid = values[7]
+
+                    if existing_is_valid and not new_is_valid:
+                        logging.warning(
+                            f"[BACKUP] Skipping update for {date_to_check}: "
+                            f"Existing valid data not replaced with invalid data"
+                        )
+                        return
+
+                    if existing_confidence > new_confidence:
+                        logging.info(
+                            f"[BACKUP] Skipping update for {date_to_check}: "
+                            f"Existing confidence {existing_confidence:.2f} > new {new_confidence:.2f}"
+                        )
+                        return
+
                 conn.execute(insert_sql, values)
 
             logging.critical(
