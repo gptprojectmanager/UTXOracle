@@ -61,6 +61,7 @@ class WhaleDetectionOrchestrator:
         ws_port: int = 8765,
         mempool_ws_url: str = "ws://localhost:8999/ws/track-mempool-tx",
         whale_threshold_btc: float = 100.0,
+        auth_enabled: bool = True,
     ):
         """
         Initialize orchestrator
@@ -71,6 +72,7 @@ class WhaleDetectionOrchestrator:
             ws_port: WebSocket server port
             mempool_ws_url: Mempool.space WebSocket URL
             whale_threshold_btc: Minimum BTC to classify as whale
+            auth_enabled: Enable WebSocket authentication (default: True)
         """
         # Load config
         config = get_config()
@@ -79,6 +81,7 @@ class WhaleDetectionOrchestrator:
         self.ws_port = ws_port
         self.mempool_ws_url = mempool_ws_url
         self.whale_threshold_btc = whale_threshold_btc
+        self.auth_enabled = auth_enabled
 
         # Components (will be initialized in start())
         self.broadcaster: Optional[WhaleAlertBroadcaster] = None
@@ -123,7 +126,9 @@ class WhaleDetectionOrchestrator:
 
         # Step 2: Create and start WebSocket broadcaster
         logger.info("Starting WebSocket broadcaster...")
-        self.broadcaster = WhaleAlertBroadcaster(host=self.ws_host, port=self.ws_port)
+        self.broadcaster = WhaleAlertBroadcaster(
+            host=self.ws_host, port=self.ws_port, auth_enabled=self.auth_enabled
+        )
 
         # Start broadcaster in background task
         broadcaster_task = asyncio.create_task(
@@ -235,6 +240,11 @@ async def main():
         default=100.0,
         help="Minimum BTC to classify as whale",
     )
+    parser.add_argument(
+        "--no-auth",
+        action="store_true",
+        help="Disable WebSocket authentication (development only)",
+    )
 
     args = parser.parse_args()
 
@@ -245,6 +255,7 @@ async def main():
         ws_port=args.ws_port,
         mempool_ws_url=args.mempool_url,
         whale_threshold_btc=args.whale_threshold,
+        auth_enabled=not args.no_auth,
     )
 
     # Setup signal handlers for graceful shutdown
