@@ -285,6 +285,22 @@ archive/                            # Previous versions (v7, v8, v9, spec-002)
 ├── v8/
 └── v9/
 docs/                               # Documentation
+├── session_reports/                    # Session validation reports (moved from root)
+│   ├── BROWSER_TEST_RESULTS.md
+│   ├── COMPREHENSIVE_VALIDATION_REPORT.md
+│   ├── CRITICAL_ISSUES_REPORT.md
+│   ├── END_TO_END_TEST_REPORT.md
+│   ├── FINAL_SYSTEM_STATE.md
+│   ├── IMPLEMENTATION_STATUS_REPORT.md
+│   ├── INFRASTRUCTURE_STATUS.md
+│   ├── INTEGRATION_TEST_REPORT.md
+│   ├── PHASE3_VERIFICATION.md
+│   ├── PHASE_005_FINAL_STATUS.md
+│   ├── PRODUCTION_READINESS_FINAL_REPORT.md
+│   ├── SPECKIT_IMPLEMENT_SUMMARY.md
+│   ├── SYSTEM_STATUS_REPORT.md
+│   ├── TASKS_VERIFICATION_REPORT.md
+│   └── TASK_STATUS_2025-11-02.md
 ├── BASELINE_LIVE_ARCHITECTURE.md
 ├── BASELINE_RENDERING_CHECKLIST.md
 ├── BASELINE_RENDERING_IMPLEMENTATION.md
