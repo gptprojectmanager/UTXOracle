@@ -93,8 +93,10 @@ class WhaleUrgencyScorer:
         """
         try:
             async with aiohttp.ClientSession() as session:
-                # Fetch recommended fees
-                fees_url = f"{self.mempool_api_url}/api/v1/fees/recommended"
+                # Fetch recommended fees from public mempool.space
+                # Note: Using public API for fee estimates only (privacy-neutral, public data)
+                # Self-hosted mempool doesn't have /fees/recommended endpoint
+                fees_url = "https://mempool.space/api/v1/fees/recommended"
                 async with session.get(
                     fees_url, timeout=aiohttp.ClientTimeout(total=5)
                 ) as response:
