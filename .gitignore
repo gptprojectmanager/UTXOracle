@@ -279,3 +279,5 @@ live.backup.*/
 # API server logs
 /tmp/utxoracle_api.log
 .playwright-mcp/
+*.pyc
+.venv/

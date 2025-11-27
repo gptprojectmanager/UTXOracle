@@ -734,9 +734,201 @@ def detect_gaps(conn, max_days_back: int = None) -> List[str]:
     return gaps
 
 
+def fetch_historical_transactions(date_str: str, config: Dict) -> List[dict]:
+    """
+    Fetch Bitcoin transactions for a specific historical date.
+
+    This function finds all blocks mined on the target date (00:00-23:59 UTC)
+    and fetches all transactions from those blocks.
+
+    Architecture:
+    - Tier 1: Bitcoin Core RPC (primary - has full historical blockchain)
+    - Tier 2: electrs (fallback - if available and faster)
+    - Tier 3: Fail (no mempool.space for old historical data)
+
+    Args:
+        date_str: Target date (YYYY-MM-DD format)
+        config: Configuration dict with BITCOIN_DATADIR
+
+    Returns:
+        list: Transaction dictionaries with vout/vin data
+
+    Raises:
+        ValueError: If date is invalid or no blocks found
+        subprocess.CalledProcessError: If Bitcoin Core RPC fails
+    """
+    import subprocess
+    from datetime import datetime, timezone
+
+    # Parse target date
+    try:
+        target_date = datetime.strptime(date_str, "%Y-%m-%d").replace(
+            tzinfo=timezone.utc
+        )
+    except ValueError as e:
+        raise ValueError(f"Invalid date format '{date_str}' (expected YYYY-MM-DD): {e}")
+
+    # Calculate Unix timestamp range for target date
+    start_timestamp = int(target_date.timestamp())  # 00:00:00 UTC
+    end_timestamp = start_timestamp + 86400  # +24 hours
+
+    logging.info(
+        f"[Historical] Fetching transactions for {date_str} "
+        f"(timestamps: {start_timestamp}-{end_timestamp})"
+    )
+
+    # Get Bitcoin Core RPC credentials
+    bitcoin_datadir = config.get("BITCOIN_DATADIR", os.path.expanduser("~/.bitcoin"))
+    conf_path = f"{bitcoin_datadir}/bitcoin.conf"
+    rpc_user = rpc_pass = None
+
+    try:
+        with open(conf_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("rpcuser="):
+                    rpc_user = line.split("=", 1)[1]
+                elif line.startswith("rpcpassword="):
+                    rpc_pass = line.split("=", 1)[1]
+    except FileNotFoundError:
+        raise ValueError(f"bitcoin.conf not found at {conf_path}")
+
+    if not (rpc_user and rpc_pass):
+        raise ValueError("rpcuser/rpcpassword not found in bitcoin.conf")
+
+    rpc_url = "http://127.0.0.1:8332/"
+    auth = f"{rpc_user}:{rpc_pass}"
+
+    def rpc_call(method: str, params: list) -> any:
+        """Helper to make Bitcoin Core RPC calls."""
+        result = subprocess.run(
+            [
+                "curl",
+                "-s",
+                "--user",
+                auth,
+                "--data-binary",
+                json.dumps({"jsonrpc": "1.0", "method": method, "params": params}),
+                "-H",
+                "content-type: text/plain;",
+                rpc_url,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+        if result.returncode != 0:
+            raise ValueError(f"RPC call '{method}' failed: {result.stderr}")
+
+        response = json.loads(result.stdout)
+        if response.get("error"):
+            raise ValueError(f"RPC error for '{method}': {response['error']}")
+
+        return response["result"]
+
+    # Step 1: Get current block height to estimate target height
+    current_height = rpc_call("getblockcount", [])
+    logging.info(f"[Historical] Current block height: {current_height}")
+
+    # Step 2: Estimate target block height (144 blocks per day)
+    # Calculate days between target date and now
+    now = datetime.now(timezone.utc)
+    days_ago = (now - target_date).days
+    estimated_height = current_height - (days_ago * 144)
+
+    logging.info(
+        f"[Historical] Estimated height for {date_str}: ~{estimated_height} "
+        f"({days_ago} days ago)"
+    )
+
+    # Step 3: Binary search to find first block of target date
+    def get_block_timestamp(height: int) -> int:
+        """Get block timestamp for given height."""
+        block_hash = rpc_call("getblockhash", [height])
+        block_header = rpc_call("getblockheader", [block_hash])
+        return block_header["time"]
+
+    # Binary search for first block >= start_timestamp
+    search_range = 300  # Search ±300 blocks (~2 days) around estimate
+    left = max(0, estimated_height - search_range)
+    right = min(current_height, estimated_height + search_range)
+
+    first_block_height = None
+    while left <= right:
+        mid = (left + right) // 2
+        mid_timestamp = get_block_timestamp(mid)
+
+        if mid_timestamp < start_timestamp:
+            left = mid + 1
+        elif mid_timestamp >= end_timestamp:
+            right = mid - 1
+        else:
+            # Found a block within target date
+            # Search backward to find first block of the day
+            first_block_height = mid
+            right = mid - 1
+
+    if first_block_height is None:
+        raise ValueError(
+            f"No blocks found for {date_str} "
+            f"(searched heights {estimated_height - search_range} to {estimated_height + search_range})"
+        )
+
+    # Step 4: Find last block of target date
+    last_block_height = first_block_height
+    for h in range(
+        first_block_height + 1, first_block_height + 200
+    ):  # Max 200 blocks per day
+        try:
+            ts = get_block_timestamp(h)
+            if ts < end_timestamp:
+                last_block_height = h
+            else:
+                break
+        except Exception:
+            break  # Reached current tip or error
+
+    block_count = last_block_height - first_block_height + 1
+    logging.info(
+        f"[Historical] Found {block_count} blocks for {date_str} "
+        f"(heights {first_block_height}-{last_block_height})"
+    )
+
+    # Step 5: Fetch all transactions from blocks in range
+    all_transactions = []
+    for height in range(first_block_height, last_block_height + 1):
+        if (height - first_block_height) % 50 == 0:
+            logging.info(
+                f"[Historical] Fetching block {height - first_block_height + 1}/{block_count}..."
+            )
+
+        block_hash = rpc_call("getblockhash", [height])
+        block_data = rpc_call(
+            "getblock", [block_hash, 2]
+        )  # verbosity=2 for full tx data
+        transactions = block_data["tx"]
+        all_transactions.extend(transactions)
+
+    logging.info(
+        f"[Historical] ✅ Fetched {len(all_transactions)} transactions from {block_count} blocks"
+    )
+
+    if len(all_transactions) < 1000:
+        logging.warning(
+            f"[Historical] Only {len(all_transactions)} transactions found "
+            f"(expected >=1000 for normal day)"
+        )
+
+    return all_transactions
+
+
 def backfill_gap(date_str: str, config: Dict) -> bool:
     """
-    Backfill a single missing date using UTXOracle.py reference implementation.
+    Backfill a single missing date using UTXOracle library directly (NO subprocess).
+
+    NEW IMPLEMENTATION: Uses UTXOracleCalculator directly instead of calling UTXOracle.py subprocess.
+    This eliminates database deadlock issues and is much faster.
 
     Args:
         date_str: Date to backfill (YYYY-MM-DD format)
@@ -745,81 +937,76 @@ def backfill_gap(date_str: str, config: Dict) -> bool:
     Returns:
         bool: True if successful, False otherwise
     """
-    import subprocess
-
     logging.info(f"[Backfill] Processing {date_str}...")
 
     try:
-        # Convert YYYY-MM-DD to YYYY/MM/DD (UTXOracle.py format)
-        date_utx_format = date_str.replace("-", "/")
+        # Parse date
+        target_date = datetime.strptime(date_str, "%Y-%m-%d")
 
-        # Get UTXOracle.py path (parent directory)
-        script_dir = Path(__file__).parent
-        utxoracle_path = script_dir.parent / "UTXOracle.py"
-
-        if not utxoracle_path.exists():
-            logging.error(f"[Backfill] UTXOracle.py not found at {utxoracle_path}")
-            return False
-
-        # Run UTXOracle.py for this date (with --no-browser)
-        cmd = [
-            "python3",
-            str(utxoracle_path),
-            "-d",
-            date_utx_format,
-            "--no-browser",
-            "-p",
-            config["BITCOIN_DATADIR"],
-        ]
-
-        logging.info(f"[Backfill] Running: {' '.join(cmd)}")
-
-        # Disable browser opening by removing DISPLAY (Linux) or setting env
-        env = os.environ.copy()
-        env["DISPLAY"] = ""  # Prevent X11 browser opening on Linux
-
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=300,  # 5 minute timeout
-            env=env,
-        )
-
-        if result.returncode != 0:
-            logging.error(f"[Backfill] UTXOracle.py failed: {result.stderr}")
-            return False
-
-        logging.info(f"[Backfill] UTXOracle.py completed for {date_str}")
-
-        # Now run import_historical_data.py to import the new HTML to DuckDB
-        import_script = script_dir / "import_historical_data.py"
-
-        if not import_script.exists():
-            logging.warning(
-                "[Backfill] import_historical_data.py not found - HTML generated but not imported to DB"
+        # Fetch exchange price for this date (mempool.space API)
+        try:
+            mempool_price = fetch_mempool_price(
+                config.get("MEMPOOL_API_URL", "http://localhost:8999")
             )
-            return True  # Partial success
+            logging.info(f"[Backfill] Exchange price: ${mempool_price:,.2f}")
+        except Exception as e:
+            logging.warning(f"[Backfill] Could not fetch exchange price: {e}")
+            mempool_price = None  # Continue without exchange price
 
-        # Run import with --limit 1 to import just this new date
-        import_cmd = ["python3", str(import_script), "--limit", "1"]
+        # Fetch Bitcoin transactions for this date (HISTORICAL!)
+        logging.info(f"[Backfill] Fetching historical transactions for {date_str}...")
+        transactions = fetch_historical_transactions(date_str, config)
 
-        logging.info("[Backfill] Importing to DuckDB...")
+        if not transactions:
+            logging.error(f"[Backfill] No transactions found for {date_str}")
+            return False
 
-        import_result = subprocess.run(
-            import_cmd, capture_output=True, text=True, timeout=60
+        # Calculate UTXOracle price using library (NO subprocess!)
+        calc = UTXOracleCalculator()
+        result = calc.calculate_price_for_transactions(transactions)
+
+        price = result.get("price_usd")
+        confidence = result.get("confidence", 0)
+        tx_count = result.get("tx_count", 0)
+
+        if price is None:
+            logging.error(f"[Backfill] UTXOracle returned None price for {date_str}")
+            return False
+
+        logging.info(
+            f"[Backfill] UTXOracle price: ${price:,.2f} "
+            f"(confidence={confidence:.2f}, tx_count={tx_count})"
         )
 
-        if import_result.returncode != 0:
-            logging.error(f"[Backfill] Import failed: {import_result.stderr}")
-            return False
+        # Prepare data for database
+        data = {
+            "timestamp": target_date,
+            "mempool_price": mempool_price
+            or price,  # Fallback to UTXOracle if no exchange price
+            "utxoracle_price": price,
+            "diff_amount": (mempool_price - price) if mempool_price else 0,
+            "diff_percent": (
+                ((mempool_price - price) / mempool_price * 100) if mempool_price else 0
+            ),
+            "confidence": confidence,
+            "tx_count": tx_count,
+            "is_valid": confidence >= 0.3 and tx_count >= 1000,
+            "whale_net_flow": 0.0,  # No whale data for historical backfill
+            "whale_direction": "NEUTRAL",
+            "action": "HOLD",
+            "combined_signal": 0.0,
+        }
+
+        # Save to database
+        save_to_duckdb(
+            data,
+            config["DUCKDB_PATH"],
+            config.get("DUCKDB_BACKUP_PATH", "/tmp/utxoracle_backup.duckdb"),
+        )
 
         logging.info(f"[Backfill] ✅ Successfully backfilled {date_str}")
         return True
 
-    except subprocess.TimeoutExpired:
-        logging.error(f"[Backfill] Timeout while processing {date_str}")
-        return False
     except Exception as e:
         logging.error(f"[Backfill] Failed to backfill {date_str}: {e}")
         return False
@@ -1199,50 +1386,54 @@ def main():
 
     # Check for gaps in entire historical series before running analysis
     try:
+        # Detect gaps (close connection after detection)
+        gaps = None
         with duckdb.connect(config["DUCKDB_PATH"]) as conn:
             gaps = detect_gaps(conn)  # Scans entire history
-            if gaps:
-                logging.warning(
-                    f"⚠️  {len(gaps)} total gaps in historical series. Recent: {gaps[:5]}"
+
+        if gaps:
+            logging.warning(
+                f"⚠️  {len(gaps)} total gaps in historical series. Recent: {gaps[:5]}"
+            )
+
+            # Auto-backfill if flag enabled
+            if args.auto_backfill:
+                logging.info(
+                    f"🔄 Auto-backfill enabled - processing up to {args.backfill_limit} gaps..."
+                )
+                gaps_to_fill = gaps[
+                    : args.backfill_limit
+                ]  # Limit to prevent overwhelming system
+
+                success_count = 0
+                fail_count = 0
+
+                # Connection is now CLOSED - safe to run backfill (uses library directly, no subprocess)
+                for gap_date in gaps_to_fill:
+                    if backfill_gap(gap_date, config):
+                        success_count += 1
+                    else:
+                        fail_count += 1
+
+                logging.info(
+                    f"✅ Backfill complete: {success_count} successful, {fail_count} failed"
                 )
 
-                # Auto-backfill if flag enabled
-                if args.auto_backfill:
-                    logging.info(
-                        f"🔄 Auto-backfill enabled - processing up to {args.backfill_limit} gaps..."
-                    )
-                    gaps_to_fill = gaps[
-                        : args.backfill_limit
-                    ]  # Limit to prevent overwhelming system
-
-                    success_count = 0
-                    fail_count = 0
-
-                    for gap_date in gaps_to_fill:
-                        if backfill_gap(gap_date, config):
-                            success_count += 1
-                        else:
-                            fail_count += 1
-
-                    logging.info(
-                        f"✅ Backfill complete: {success_count} successful, {fail_count} failed"
-                    )
-
-                    # Re-check gaps after backfill
-                    with duckdb.connect(config["DUCKDB_PATH"]) as conn:
-                        remaining_gaps = detect_gaps(conn)
-                        if remaining_gaps:
-                            logging.warning(
-                                f"⚠️  {len(remaining_gaps)} gaps remaining after backfill"
-                            )
-                        else:
-                            logging.info(
-                                "✅ All gaps filled - historical series now complete!"
-                            )
-                else:
-                    logging.info(
-                        "💡 Tip: Run with --auto-backfill to automatically fill gaps"
-                    )
+                # Re-check gaps after backfill
+                with duckdb.connect(config["DUCKDB_PATH"]) as conn:
+                    remaining_gaps = detect_gaps(conn)
+                    if remaining_gaps:
+                        logging.warning(
+                            f"⚠️  {len(remaining_gaps)} gaps remaining after backfill"
+                        )
+                    else:
+                        logging.info(
+                            "✅ All gaps filled - historical series now complete!"
+                        )
+            else:
+                logging.info(
+                    "💡 Tip: Run with --auto-backfill to automatically fill gaps"
+                )
     except Exception as e:
         logging.warning(f"Gap detection failed: {e}")
 
