@@ -281,3 +281,4 @@ live.backup.*/
 .playwright-mcp/
 *.pyc
 .venv/
+UTXOracle_*.html

@@ -9,7 +9,16 @@
  * - T044: 5-second polling mechanism
  * - T045: Loading states and error handling
  * - T046: Number formatting (K, M, B suffixes)
+ * - T049-T051: WebSocket client integration
+ * - T052-T055: Transaction feed with ring buffer and auto-scroll
  */
+
+// ============================================
+// Imports
+// ============================================
+
+import { WhaleWebSocketClient, ConnectionState, EventType } from './whale_client.js';
+import { TransactionFeed } from './whale_feed.js';
 
 // ============================================
 // Configuration
@@ -20,6 +29,8 @@ const CONFIG = {
     pollInterval: 5000, // 5 seconds
     maxRetries: 3,
     retryDelay: 2000,
+    enableWebSocket: false, // Enable when JWT auth is configured
+    jwtToken: null, // Will be fetched from auth endpoint
 };
 
 // ============================================
@@ -300,6 +311,18 @@ class WhaleDashboard {
         this.ui = new UIController();
         this.api = new WhaleAPIClient(CONFIG.apiEndpoint);
 
+        // WebSocket client (optional - enabled when JWT auth is configured)
+        this.wsClient = null;
+        this.useWebSocket = CONFIG.enableWebSocket && CONFIG.jwtToken;
+
+        // Transaction feed
+        try {
+            this.transactionFeed = new TransactionFeed('transaction-feed');
+        } catch (error) {
+            console.warn('Transaction feed initialization failed:', error);
+            this.transactionFeed = null;
+        }
+
         this.setupEventListeners();
         this.initialize();
     }
@@ -315,10 +338,42 @@ class WhaleDashboard {
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 this.stopPolling();
+                if (this.transactionFeed) {
+                    this.transactionFeed.pause();
+                }
             } else {
                 this.startPolling();
+                if (this.transactionFeed) {
+                    this.transactionFeed.resume();
+                }
             }
         });
+
+        // Feed control buttons (if they exist)
+        const pauseButton = document.getElementById('pause-feed');
+        const clearButton = document.getElementById('clear-feed');
+
+        if (pauseButton && this.transactionFeed) {
+            pauseButton.addEventListener('click', () => {
+                if (this.transactionFeed.isPaused) {
+                    this.transactionFeed.resume();
+                    pauseButton.querySelector('.control-label').textContent = 'Pause';
+                    pauseButton.querySelector('.control-icon').textContent = '⏸';
+                    pauseButton.classList.remove('active');
+                } else {
+                    this.transactionFeed.pause();
+                    pauseButton.querySelector('.control-label').textContent = 'Resume';
+                    pauseButton.querySelector('.control-icon').textContent = '▶';
+                    pauseButton.classList.add('active');
+                }
+            });
+        }
+
+        if (clearButton && this.transactionFeed) {
+            clearButton.addEventListener('click', () => {
+                this.transactionFeed.clear();
+            });
+        }
     }
 
     async initialize() {
@@ -327,15 +382,114 @@ class WhaleDashboard {
         this.ui.showLoading();
         this.ui.updateConnectionStatus(false, 'Connecting...');
 
-        // Initial data fetch
+        // Initialize WebSocket if enabled
+        if (this.useWebSocket) {
+            this.initializeWebSocket();
+        } else {
+            console.log('WebSocket disabled - using HTTP polling');
+        }
+
+        // Initial data fetch (HTTP fallback)
         const result = await this.api.fetchLatest();
 
         if (result.success) {
             this.handleDataUpdate(result.data);
-            this.startPolling();
+            if (!this.useWebSocket) {
+                this.startPolling();
+            }
         } else {
             this.handleError(result.error);
         }
+    }
+
+    // ========================================
+    // WebSocket Management
+    // ========================================
+
+    initializeWebSocket() {
+        if (!CONFIG.jwtToken) {
+            console.warn('No JWT token available for WebSocket');
+            return;
+        }
+
+        console.log('Initializing WebSocket client...');
+        this.wsClient = new WhaleWebSocketClient(CONFIG.jwtToken);
+
+        // Connection events
+        this.wsClient.on(EventType.CONNECTED, () => {
+            console.log('WebSocket connected successfully');
+            this.state.connected = true;
+            this.ui.updateConnectionStatus(true);
+
+            // Stop HTTP polling when WebSocket connects
+            this.stopPolling();
+        });
+
+        this.wsClient.on(EventType.DISCONNECTED, (data) => {
+            console.log('WebSocket disconnected:', data.reason);
+            this.state.connected = false;
+            this.ui.updateConnectionStatus(false, 'WebSocket disconnected');
+
+            // Fallback to HTTP polling
+            this.startPolling();
+        });
+
+        this.wsClient.on(EventType.ERROR, (data) => {
+            console.error('WebSocket error:', data.message);
+        });
+
+        this.wsClient.on(EventType.TOKEN_EXPIRED, () => {
+            console.warn('JWT token expired - need to refresh');
+            this.ui.updateConnectionStatus(false, 'Token expired');
+            // TODO: Implement token refresh logic
+        });
+
+        // Data events
+        this.wsClient.on(EventType.TRANSACTION, (tx) => {
+            console.log('New transaction received:', tx);
+            if (this.transactionFeed) {
+                this.transactionFeed.addTransaction(tx);
+            }
+        });
+
+        this.wsClient.on(EventType.NETFLOW, (netflowData) => {
+            console.log('Net flow update received:', netflowData);
+            this.handleNetFlowUpdate(netflowData);
+        });
+
+        this.wsClient.on(EventType.ALERT, (alert) => {
+            console.log('Alert received:', alert);
+            // TODO: Handle alerts (Phase 9)
+        });
+
+        this.wsClient.on(EventType.RATE_LIMITED, (data) => {
+            console.warn('Rate limited:', data);
+        });
+
+        this.wsClient.on(EventType.SUBSCRIPTION_ACK, (data) => {
+            console.log('Subscription acknowledged:', data.channels);
+        });
+
+        // Connect
+        this.wsClient.connect();
+    }
+
+    handleNetFlowUpdate(netflowData) {
+        // Update state with net flow data
+        const data = {
+            whale_net_flow: netflowData.net_flow_btc,
+            whale_direction: netflowData.direction,
+            btc_price: netflowData.net_flow_usd / netflowData.net_flow_btc
+        };
+
+        this.state.updateNetFlow(data);
+        this.state.connected = true;
+        this.state.loading = false;
+
+        this.ui.updateLastUpdate(this.state.lastUpdate);
+        this.ui.updateNetFlowDisplay(this.state.netFlowData);
+        this.ui.updateDirectionIndicator(this.state.netFlowData.direction);
+        this.ui.showContent();
     }
 
     handleDataUpdate(data) {
