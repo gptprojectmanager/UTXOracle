@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UTXOracle - Whale Detection Dashboard</title>
+    <link rel="stylesheet" href="/static/css/whale_dashboard.css">
+</head>
+<body>
+    <!-- Connection Status Indicator -->
+    <div class="status-bar" id="status-bar">
+        <span class="status-indicator disconnected" id="connection-status">
+            <span class="status-dot"></span>
+            <span class="status-text">Connecting...</span>
+        </span>
+        <span class="last-update" id="last-update">No data yet</span>
+    </div>
+
+    <!-- Header -->
+    <header class="dashboard-header">
+        <div class="header-content">
+            <h1 class="dashboard-title">
+                <span class="whale-icon">🐋</span>
+                Whale Detection Dashboard
+            </h1>
+            <div class="header-subtitle">
+                Real-time Bitcoin whale transaction monitoring (>100 BTC)
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Content -->
+    <main class="dashboard-main">
+
+        <!-- Net Flow Section (Primary Focus) -->
+        <section class="net-flow-section">
+            <div class="section-header">
+                <h2>Current Whale Net Flow</h2>
+                <div class="info-tooltip" title="Buy pressure minus sell pressure over 5-minute intervals">
+                    <span class="tooltip-icon">ⓘ</span>
+                </div>
+            </div>
+
+            <div class="net-flow-display" id="net-flow-display">
+                <div class="loading-state" id="net-flow-loading">
+                    <div class="spinner"></div>
+                    <p>Loading whale flow data...</p>
+                </div>
+
+                <div class="net-flow-content hidden" id="net-flow-content">
+                    <!-- BTC Value -->
+                    <div class="net-flow-value">
+                        <span class="value-label">Net Flow</span>
+                        <div class="value-btc" id="value-btc">0.00 BTC</div>
+                        <div class="value-usd" id="value-usd">$0 USD</div>
+                    </div>
+
+                    <!-- Direction Indicator -->
+                    <div class="direction-indicator" id="direction-indicator">
+                        <div class="direction-arrow" id="direction-arrow">
+                            <span class="arrow-symbol">→</span>
+                        </div>
+                        <div class="direction-label" id="direction-label">NEUTRAL</div>
+                        <div class="direction-description" id="direction-description">
+                            No significant whale activity
+                        </div>
+                    </div>
+                </div>
+
+                <div class="error-state hidden" id="net-flow-error">
+                    <p class="error-message">⚠️ Unable to load data</p>
+                    <button class="retry-button" id="retry-button">Retry</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Transaction Feed Section -->
+        <section class="transaction-feed-section">
+            <div class="section-header">
+                <h2>Recent Whale Transactions</h2>
+                <div class="feed-controls">
+                    <button class="control-button" id="pause-feed" title="Pause auto-scroll">
+                        <span class="control-icon">⏸</span>
+                        <span class="control-label">Pause</span>
+                    </button>
+                    <button class="control-button" id="clear-feed" title="Clear transaction feed">
+                        <span class="control-icon">🗑</span>
+                        <span class="control-label">Clear</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="transaction-feed" id="transaction-feed">
+                <div class="feed-empty-state" id="feed-empty">
+                    <p>Waiting for whale transactions...</p>
+                    <small>Transactions over 100 BTC will appear here</small>
+                </div>
+            </div>
+        </section>
+
+        <!-- Historical Chart Section (placeholder for Phase 7) -->
+        <section class="chart-section">
+            <div class="section-header">
+                <h2>Net Flow History (24h)</h2>
+                <div class="chart-controls">
+                    <select class="timeframe-selector" id="timeframe-selector">
+                        <option value="1h">1 Hour</option>
+                        <option value="6h">6 Hours</option>
+                        <option value="24h" selected>24 Hours</option>
+                        <option value="7d">7 Days</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="chart-container" id="chart-container">
+                <div class="chart-placeholder">
+                    <p>📊 Chart will load when data is available</p>
+                    <small>Plotly.js interactive chart with zoom/pan</small>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="dashboard-footer">
+        <div class="footer-content">
+            <p>UTXOracle Whale Detection Dashboard | Data updates every 5 seconds</p>
+            <p class="footer-links">
+                <a href="/api/whale/latest" target="_blank">API</a> |
+                <a href="https://github.com/your-repo/UTXOracle" target="_blank">GitHub</a>
+            </p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script type="module" src="/static/js/whale_dashboard.js"></script>
+</body>
+</html>

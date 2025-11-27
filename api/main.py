@@ -24,6 +24,7 @@ from typing import Optional, List, Dict
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
@@ -815,17 +816,51 @@ async def root():
     return {
         "name": "UTXOracle API",
         "version": "1.0.0",
-        "spec": "003-mempool-integration-refactor, 004-whale-flow-detection, 005-mempool-whale-realtime",
+        "spec": "003-mempool-integration-refactor, 004-whale-flow-detection, 005-mempool-whale-realtime, 006-whale-dashboard",
         "endpoints": {
             "latest": "/api/prices/latest",
             "historical": "/api/prices/historical?days=7",
             "comparison": "/api/prices/comparison?days=7",
             "whale_latest": "/api/whale/latest",
+            "whale_dashboard": "/whale",
             "health": "/health",
             "metrics": "/metrics?window=60",
             "docs": "/docs",
         },
     }
+
+
+# =============================================================================
+# GET /whale - Whale Detection Dashboard (spec-006)
+# =============================================================================
+
+
+@app.get("/whale")
+async def whale_dashboard():
+    """
+    Serve the whale detection dashboard HTML page.
+
+    **Public Endpoint:** No authentication required
+
+    Returns:
+        HTML page with real-time whale transaction monitoring dashboard
+    """
+    dashboard_path = FRONTEND_DIR / "whale_dashboard.html"
+
+    if not dashboard_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Whale dashboard not found. Please ensure frontend files are present.",
+        )
+
+    return FileResponse(
+        path=str(dashboard_path),
+        media_type="text/html",
+        headers={
+            "Cache-Control": "no-cache",  # Always fetch latest version
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 # =============================================================================
