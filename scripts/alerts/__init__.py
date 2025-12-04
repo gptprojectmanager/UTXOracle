@@ -147,6 +147,9 @@ def save_event(event: "AlertEvent", db_path: str = DEFAULT_DB_PATH) -> None:
     """
     Save event to DuckDB for audit/replay.
 
+    Uses INSERT OR IGNORE to safely handle replays of failed events
+    without causing duplicate key errors.
+
     Args:
         event: The AlertEvent to save
         db_path: Path to DuckDB database file
@@ -155,7 +158,7 @@ def save_event(event: "AlertEvent", db_path: str = DEFAULT_DB_PATH) -> None:
     try:
         conn.execute(
             """
-            INSERT INTO alert_events (
+            INSERT OR IGNORE INTO alert_events (
                 event_id, event_type, timestamp, severity, payload,
                 webhook_status, webhook_attempts, created_at
             ) VALUES (?, ?, ?, ?, ?, 'pending', 0, CURRENT_TIMESTAMP)

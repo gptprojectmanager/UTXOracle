@@ -736,3 +736,40 @@ class TestPersistence:
         assert "event-1" in event_ids
         assert "event-3" in event_ids
         assert "event-2" not in event_ids
+
+    def test_save_event_replay_does_not_crash(self, sample_event, temp_db):
+        """Replaying a failed event should not crash on duplicate key.
+
+        When an event fails webhook delivery and is replayed later,
+        save_event() is called again with the same event_id.
+        This should NOT raise ConstraintException (duplicate key error).
+        The INSERT OR IGNORE ensures idempotent replay behavior.
+        """
+        from scripts.alerts import save_event, update_webhook_status
+        import duckdb
+
+        # First save - event created with pending status
+        save_event(sample_event, db_path=temp_db)
+
+        # Simulate webhook failure
+        update_webhook_status(
+            sample_event.event_id,
+            status="failed",
+            error="Connection timeout",
+            db_path=temp_db,
+        )
+
+        # Replay - call save_event again with same event_id
+        # This should NOT raise an exception (INSERT OR IGNORE)
+        save_event(sample_event, db_path=temp_db)
+
+        # Verify status was preserved (not reset to 'pending')
+        conn = duckdb.connect(temp_db)
+        result = conn.execute(
+            "SELECT webhook_status FROM alert_events WHERE event_id = ?",
+            [sample_event.event_id],
+        ).fetchone()
+        conn.close()
+
+        # Status should still be 'failed', not reset to 'pending'
+        assert result[0] == "failed"
