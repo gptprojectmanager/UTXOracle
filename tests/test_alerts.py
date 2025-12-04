@@ -275,6 +275,8 @@ class TestWebhookDispatcher:
     @pytest.mark.asyncio
     async def test_dispatcher_posts_to_webhook(self, sample_event, config):
         """T011: Dispatcher sends HTTP POST to configured URL."""
+        import json
+
         from scripts.alerts.dispatcher import WebhookDispatcher
 
         mock_response = MagicMock()
@@ -292,7 +294,10 @@ class TestWebhookDispatcher:
             mock_post.assert_called_once()
             call_args = mock_post.call_args
             assert call_args.kwargs["url"] == "http://localhost:5678/webhook/test"
-            assert call_args.kwargs["json"]["event_id"] == "test-event-1234"
+            # Content is sent as bytes (compact JSON for HMAC consistency)
+            content_bytes = call_args.kwargs["content"]
+            payload = json.loads(content_bytes.decode("utf-8"))
+            assert payload["event_id"] == "test-event-1234"
             assert result.status == "sent"
 
     @pytest.mark.asyncio
@@ -319,6 +324,42 @@ class TestWebhookDispatcher:
             assert "X-UTXOracle-Signature" in headers
             # Signature should be sha256=<hex>
             assert headers["X-UTXOracle-Signature"].startswith("sha256=")
+
+    @pytest.mark.asyncio
+    async def test_hmac_signature_matches_sent_content(
+        self, sample_event, config_with_secret
+    ):
+        """Verify HMAC signature is computed on exact bytes that are sent."""
+        import hashlib
+        import hmac
+
+        from scripts.alerts.dispatcher import WebhookDispatcher
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.is_success = True
+
+        with patch(
+            "scripts.alerts.dispatcher.httpx.AsyncClient.post",
+            new_callable=AsyncMock,
+            return_value=mock_response,
+        ) as mock_post:
+            dispatcher = WebhookDispatcher(config_with_secret)
+            await dispatcher.dispatch(sample_event)
+
+            call_args = mock_post.call_args
+            content_bytes = call_args.kwargs["content"]
+            headers = call_args.kwargs["headers"]
+            signature = headers["X-UTXOracle-Signature"]
+
+            # Manually compute signature on exact sent content
+            expected_sig = hmac.new(
+                config_with_secret.secret.encode("utf-8"),
+                content_bytes,
+                hashlib.sha256,
+            ).hexdigest()
+
+            assert signature == f"sha256={expected_sig}"
 
     @pytest.mark.asyncio
     async def test_dispatcher_retries_on_failure(self, sample_event, config):

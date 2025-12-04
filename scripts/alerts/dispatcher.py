@@ -47,12 +47,12 @@ class WebhookDispatcher:
             await self._client.aclose()
             self._client = None
 
-    def _sign(self, payload: dict) -> str:
+    def _sign(self, payload_bytes: bytes) -> str:
         """
         Generate HMAC-SHA256 signature for payload.
 
         Args:
-            payload: The JSON payload to sign
+            payload_bytes: The JSON payload as bytes (already serialized)
 
         Returns:
             Signature string in format "sha256=<hex>"
@@ -60,7 +60,6 @@ class WebhookDispatcher:
         if not self.config.secret:
             return ""
 
-        payload_bytes = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         signature = hmac.new(
             self.config.secret.encode("utf-8"),
             payload_bytes,
@@ -101,24 +100,30 @@ class WebhookDispatcher:
         )
 
         # Prepare payload and headers
+        # IMPORTANT: Use compact JSON (no spaces) for consistent HMAC verification
+        # Both signing and sending must use the exact same serialization
         payload = event.to_webhook_payload()
+        payload_bytes = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         headers = {"Content-Type": "application/json"}
 
         if self.config.secret:
-            signature = self._sign(payload)
+            signature = self._sign(payload_bytes)
             headers["X-UTXOracle-Signature"] = signature
 
         # Retry loop with exponential backoff
+        # Ensure at least 1 attempt even if max_retries=0
         client = await self._get_client()
         last_error: Exception | None = None
+        attempts = max(1, self.config.max_retries)
 
-        for attempt in range(self.config.max_retries):
+        for attempt in range(attempts):
             delivery.attempt_count = attempt + 1
 
             try:
+                # Send raw bytes to ensure exact match with signed content
                 response = await client.post(
                     url=self.config.url,
-                    json=payload,
+                    content=payload_bytes,
                     headers=headers,
                     timeout=self.config.timeout_seconds,
                 )
@@ -137,18 +142,18 @@ class WebhookDispatcher:
                 # Non-success response, will retry
                 logger.warning(
                     f"Webhook returned {response.status_code} for event {event.event_id}, "
-                    f"attempt {attempt + 1}/{self.config.max_retries}"
+                    f"attempt {attempt + 1}/{attempts}"
                 )
 
             except Exception as e:
                 last_error = e
                 logger.warning(
                     f"Webhook request failed for event {event.event_id}: {e}, "
-                    f"attempt {attempt + 1}/{self.config.max_retries}"
+                    f"attempt {attempt + 1}/{attempts}"
                 )
 
             # Exponential backoff before retry (skip on last attempt)
-            if attempt < self.config.max_retries - 1:
+            if attempt < attempts - 1:
                 backoff = 2**attempt  # 1s, 2s, 4s...
                 await asyncio.sleep(backoff)
 
