@@ -134,6 +134,8 @@ def enhanced_monte_carlo_fusion(
     funding_vote: Optional[float] = None,
     oi_vote: Optional[float] = None,
     n_samples: int = N_BOOTSTRAP_SAMPLES,
+    custom_weights: Optional[dict[str, float]] = None,
+    seed: Optional[int] = None,
 ) -> EnhancedFusionResult:
     """
     Perform 4-component Monte Carlo signal fusion.
@@ -148,6 +150,8 @@ def enhanced_monte_carlo_fusion(
         funding_vote: Funding rate contrarian signal (optional).
         oi_vote: Open interest signal (optional).
         n_samples: Number of bootstrap iterations.
+        custom_weights: Optional custom weights dict for optimization.
+        seed: Optional random seed (None = non-deterministic, 42 = reproducible).
 
     Returns:
         EnhancedFusionResult with signal stats, action, and component breakdown.
@@ -161,8 +165,24 @@ def enhanced_monte_carlo_fusion(
 
     derivatives_available = len(missing) == 0
 
-    # Get weights (redistributed if needed)
-    weights = redistribute_weights(missing)
+    # Get weights (custom, redistributed, or default)
+    if custom_weights is not None:
+        weights = custom_weights.copy()
+        # Zero out missing components and redistribute to remaining
+        missing_weight = 0.0
+        for comp in missing:
+            if comp in weights:
+                missing_weight += weights[comp]
+                weights[comp] = 0.0
+        # Redistribute missing weight proportionally to remaining components
+        if missing_weight > 0:
+            remaining = [k for k, v in weights.items() if v > 0 and k not in missing]
+            if remaining:
+                total_remaining = sum(weights[k] for k in remaining)
+                for comp in remaining:
+                    weights[comp] += missing_weight * (weights[comp] / total_remaining)
+    else:
+        weights = redistribute_weights(missing)
 
     # Build component arrays for sampling
     components = {
@@ -179,7 +199,9 @@ def enhanced_monte_carlo_fusion(
         components["oi"] = (oi_vote, 0.7, weights["oi"])
 
     # Bootstrap sampling
-    np.random.seed(42)  # Reproducibility
+    # Use seed if provided (for testing), otherwise non-deterministic
+    if seed is not None:
+        np.random.seed(seed)
     samples = np.zeros(n_samples)
 
     for i in range(n_samples):
@@ -212,8 +234,11 @@ def enhanced_monte_carlo_fusion(
     # Confidence based on how strongly the signal points in one direction
     if signal_mean > 0:
         action_confidence = float(np.mean(samples > 0))
-    else:
+    elif signal_mean < 0:
         action_confidence = float(np.mean(samples < 0))
+    else:
+        # Exactly 0 mean: confidence is proportion of samples near zero (within threshold)
+        action_confidence = float(np.mean(np.abs(samples) < BUY_THRESHOLD))
 
     action = determine_action(signal_mean, action_confidence)
     distribution_type = detect_distribution_type(samples)
@@ -254,6 +279,8 @@ def create_enhanced_result(
     funding_vote: Optional[float],
     oi_vote: Optional[float],
     data_freshness_minutes: int = 0,
+    custom_weights: Optional[dict[str, float]] = None,
+    seed: Optional[int] = None,
 ) -> EnhancedFusionResult:
     """
     High-level function to create enhanced fusion result.
@@ -268,6 +295,8 @@ def create_enhanced_result(
         funding_vote: Funding rate contrarian signal (optional).
         oi_vote: Open interest signal (optional).
         data_freshness_minutes: Age of derivatives data.
+        custom_weights: Optional custom weights dict for optimization.
+        seed: Optional random seed.
 
     Returns:
         EnhancedFusionResult with all metadata.
@@ -279,6 +308,8 @@ def create_enhanced_result(
         utxo_conf=utxo_conf,
         funding_vote=funding_vote,
         oi_vote=oi_vote,
+        custom_weights=custom_weights,
+        seed=seed,
     )
 
     # Update freshness (create new instance since dataclass is frozen-like)

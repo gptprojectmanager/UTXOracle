@@ -57,15 +57,26 @@ def get_liq_connection(
         return None
 
     path = db_path or LIQ_DB_PATH
-    if not Path(path).exists():
-        logger.warning(f"LiquidationHeatmap database not found: {path}")
+
+    # Resolve to absolute path and validate
+    resolved_path = Path(path).resolve()
+    if not resolved_path.exists():
+        logger.warning(f"LiquidationHeatmap database not found: {resolved_path}")
         return None
+
+    # Security: Ensure path is a .duckdb file (defense in depth)
+    if not str(resolved_path).endswith(".duckdb"):
+        logger.error(f"Invalid database file extension: {resolved_path}")
+        return None
+
+    # Escape single quotes in path for SQL safety
+    safe_path = str(resolved_path).replace("'", "''")
 
     last_error = None
     for attempt in range(max_retries):
         try:
             conn = duckdb.connect()
-            conn.execute(f"ATTACH '{path}' AS liq (READ_ONLY)")
+            conn.execute(f"ATTACH '{safe_path}' AS liq (READ_ONLY)")
             logger.debug(f"Connected to LiquidationHeatmap (attempt {attempt + 1})")
             return conn
         except duckdb.IOException as e:

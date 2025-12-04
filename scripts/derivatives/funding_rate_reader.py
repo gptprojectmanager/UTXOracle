@@ -53,6 +53,13 @@ def funding_to_vote(funding_rate: float) -> Tuple[float, bool]:
         >>> funding_to_vote(0.0001)  # +0.01%
         (0.0, False)  # Neutral
     """
+    import math
+
+    # Handle invalid inputs (NaN, inf)
+    if math.isnan(funding_rate) or math.isinf(funding_rate):
+        logger.warning(f"Invalid funding rate: {funding_rate}, returning neutral")
+        return 0.0, False
+
     # Detect extremes
     is_extreme = funding_rate > EXTREME_POSITIVE or funding_rate < EXTREME_NEGATIVE
 

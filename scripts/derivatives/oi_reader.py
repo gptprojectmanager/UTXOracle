@@ -41,7 +41,16 @@ def calculate_oi_change(current_oi: float, previous_oi: float) -> float:
     Returns:
         Percentage change as decimal (0.05 = 5%).
     """
-    if previous_oi <= 0:
+    import math
+
+    # Handle invalid inputs (NaN, inf, zero/negative previous)
+    if (
+        math.isnan(current_oi)
+        or math.isnan(previous_oi)
+        or math.isinf(current_oi)
+        or math.isinf(previous_oi)
+        or previous_oi <= 0
+    ):
         return 0.0
     return (current_oi - previous_oi) / previous_oi
 
@@ -69,6 +78,13 @@ def oi_to_vote(
         >>> oi_to_vote(-0.03, "ACCUMULATION")
         (0.0, "deleveraging")  # Falling OI = neutral
     """
+    import math
+
+    # Handle invalid inputs (NaN, inf)
+    if math.isnan(oi_change) or math.isinf(oi_change):
+        logger.warning(f"Invalid OI change: {oi_change}, returning neutral")
+        return 0.0, "neutral"
+
     # Falling OI = deleveraging (always neutral)
     if oi_change < DELEVERAGE_THRESHOLD:
         logger.debug(f"OI change {oi_change * 100:.2f}% → deleveraging")
@@ -250,7 +266,12 @@ def get_latest_oi_signal(
             [symbol, current_ts - timedelta(hours=window_hours)],
         ).fetchone()
 
-        previous_oi = previous_result[0] if previous_result else current_oi
+        # Handle None values from DB (NULL columns)
+        previous_oi = (
+            previous_result[0]
+            if previous_result and previous_result[0] is not None
+            else current_oi
+        )
 
         # Get 24h ago for oi_change_24h
         oi_24h_result = conn.execute(
@@ -265,7 +286,12 @@ def get_latest_oi_signal(
             [symbol, current_ts - timedelta(hours=24)],
         ).fetchone()
 
-        oi_24h_ago = oi_24h_result[0] if oi_24h_result else current_oi
+        # Handle None values from DB (NULL columns)
+        oi_24h_ago = (
+            oi_24h_result[0]
+            if oi_24h_result and oi_24h_result[0] is not None
+            else current_oi
+        )
 
         # Calculate changes
         oi_change_1h = calculate_oi_change(float(current_oi), float(previous_oi))
@@ -353,7 +379,12 @@ def get_oi_signal_at(
             [symbol, timestamp - timedelta(hours=24)],
         ).fetchone()
 
-        oi_24h_ago = oi_24h_result[0] if oi_24h_result else current_oi
+        # Handle None values from DB (NULL columns)
+        oi_24h_ago = (
+            oi_24h_result[0]
+            if oi_24h_result and oi_24h_result[0] is not None
+            else current_oi
+        )
         oi_change_24h = calculate_oi_change(current_oi, float(oi_24h_ago))
 
         vote, context = oi_to_vote(oi_change_1h, whale_direction)

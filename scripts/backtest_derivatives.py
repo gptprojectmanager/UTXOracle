@@ -161,7 +161,7 @@ def load_historical_data(
 
 def run_backtest(
     data: list[dict],
-    weights: Optional[dict] = None,
+    custom_weights: Optional[dict] = None,
     whale_vote: float = 0.0,  # Simulated whale signal (neutral for backtest)
     whale_conf: float = 0.5,
     utxo_vote: float = 0.0,  # Simulated UTXO signal (neutral for backtest)
@@ -172,7 +172,7 @@ def run_backtest(
 
     Args:
         data: Historical data from load_historical_data.
-        weights: Optional custom weights (not used directly, but for future optimization).
+        custom_weights: Optional custom weights for optimization (passed to fusion).
         whale_vote: Simulated whale signal for testing.
         whale_conf: Whale signal confidence.
         utxo_vote: Simulated UTXO signal.
@@ -212,6 +212,8 @@ def run_backtest(
             utxo_conf=utxo_conf,
             funding_vote=funding_vote,
             oi_vote=oi_vote,
+            custom_weights=custom_weights,
+            seed=42,  # Reproducible for backtest
         )
 
         signals.append(
@@ -269,6 +271,10 @@ def calculate_performance_metrics(
         future_price = future_sigs[0]["price"]
         current_price = sig["price"]
 
+        # Skip if prices are invalid (None or zero)
+        if not current_price or not future_price or current_price <= 0:
+            continue
+
         # Calculate return
         price_return = (future_price - current_price) / current_price
 
@@ -282,7 +288,12 @@ def calculate_performance_metrics(
             correct += 1
 
         total_evaluated += 1
-        returns.append(price_return if action == "BUY" else -price_return)
+        # Only track returns for BUY/SELL actions (HOLD = no position = 0 return)
+        if action == "BUY":
+            returns.append(price_return)
+        elif action == "SELL":
+            returns.append(-price_return)
+        # HOLD actions don't contribute to returns (no position taken)
 
     win_rate = correct / total_evaluated if total_evaluated > 0 else 0.0
 
@@ -304,8 +315,12 @@ def calculate_performance_metrics(
     # Max drawdown
     cumulative = np.cumprod([1 + r for r in returns]) if returns else [1]
     running_max = np.maximum.accumulate(cumulative)
-    drawdowns = (cumulative - running_max) / running_max
-    max_drawdown = float(np.min(drawdowns)) if len(drawdowns) > 0 else 0.0
+    # Avoid division by zero if running_max contains zeros (extreme loss scenario)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        drawdowns = np.where(
+            running_max > 0, (cumulative - running_max) / running_max, 0.0
+        )
+    max_drawdown = float(np.nanmin(drawdowns)) if len(drawdowns) > 0 else 0.0
 
     logger.info(
         f"Performance: win_rate={win_rate:.2%}, total_return={total_return:.2%}, "
@@ -359,22 +374,25 @@ def grid_search_weights(
                 if oi_w < 0 or oi_w > 0.5:
                     continue
 
+                # Build weights dict for this iteration
+                test_weights = {
+                    "whale": whale_w,
+                    "utxo": utxo_w,
+                    "funding": funding_w,
+                    "oi": oi_w,
+                }
+
                 # Evaluate weights on training data
-                train_signals = run_backtest(train_data)
+                train_signals = run_backtest(train_data, custom_weights=test_weights)
                 train_metrics = calculate_performance_metrics(train_signals)
 
                 if train_metrics["sharpe_ratio"] > best_sharpe:
                     best_sharpe = train_metrics["sharpe_ratio"]
-                    best_weights = {
-                        "whale": whale_w,
-                        "utxo": utxo_w,
-                        "funding": funding_w,
-                        "oi": oi_w,
-                    }
+                    best_weights = test_weights.copy()
 
     # Validate best weights on validation set
     if best_weights:
-        val_signals = run_backtest(val_data)
+        val_signals = run_backtest(val_data, custom_weights=best_weights)
         val_metrics = calculate_performance_metrics(val_signals)
         logger.info(
             f"Best weights: {best_weights} "
