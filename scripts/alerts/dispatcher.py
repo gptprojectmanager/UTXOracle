@@ -141,8 +141,8 @@ class WebhookDispatcher:
 
                 # Non-success response, will retry
                 logger.warning(
-                    f"Webhook returned {response.status_code} for event {event.event_id}, "
-                    f"attempt {attempt + 1}/{attempts}"
+                    f"Webhook returned {response.status_code} for "
+                    f"event {event.event_id}, attempt {attempt + 1}/{attempts}"
                 )
 
             except Exception as e:
@@ -167,8 +167,8 @@ class WebhookDispatcher:
             )
 
         logger.error(
-            f"Event {event.event_id} delivery failed after {delivery.attempt_count} attempts: "
-            f"{delivery.error_message}"
+            f"Event {event.event_id} delivery failed after "
+            f"{delivery.attempt_count} attempts: {delivery.error_message}"
         )
 
         return delivery
