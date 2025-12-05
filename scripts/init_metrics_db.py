@@ -136,6 +136,65 @@ CREATE INDEX IF NOT EXISTS idx_backtest_dates ON backtest_results(start_date, en
 CREATE INDEX IF NOT EXISTS idx_backtest_run ON backtest_results(run_timestamp);
 """
 
+# Schema for address_clusters table (spec-013)
+ADDRESS_CLUSTERS_TABLE_SQL = """
+-- Address Clusters table (spec-013)
+-- Stores multi-input heuristic clustering results
+
+CREATE TABLE IF NOT EXISTS address_clusters (
+    cluster_id VARCHAR PRIMARY KEY,
+    addresses JSON NOT NULL,  -- Array of addresses in cluster
+    total_balance DOUBLE DEFAULT 0.0,
+    tx_count INTEGER DEFAULT 0 CHECK (tx_count >= 0),
+    first_seen TIMESTAMP,
+    last_seen TIMESTAMP,
+    is_exchange_likely BOOLEAN DEFAULT FALSE,
+    label VARCHAR,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+ADDRESS_CLUSTERS_INDEXES_SQL = """
+-- Index for exchange-like clusters
+CREATE INDEX IF NOT EXISTS idx_clusters_exchange ON address_clusters(is_exchange_likely);
+
+-- Index for labeled clusters
+CREATE INDEX IF NOT EXISTS idx_clusters_label ON address_clusters(label);
+
+-- Index for large clusters by tx_count
+CREATE INDEX IF NOT EXISTS idx_clusters_txcount ON address_clusters(tx_count);
+"""
+
+# Schema for coinjoin_cache table (spec-013)
+COINJOIN_CACHE_TABLE_SQL = """
+-- CoinJoin Cache table (spec-013)
+-- Caches CoinJoin detection results for fast filtering
+
+CREATE TABLE IF NOT EXISTS coinjoin_cache (
+    txid VARCHAR PRIMARY KEY,
+    is_coinjoin BOOLEAN NOT NULL,
+    confidence DOUBLE CHECK (confidence >= 0 AND confidence <= 1),
+    coinjoin_type VARCHAR,  -- wasabi, whirlpool, joinmarket, generic, NULL
+    equal_output_count INTEGER DEFAULT 0,
+    total_inputs INTEGER DEFAULT 0,
+    total_outputs INTEGER DEFAULT 0,
+    detection_reasons JSON,  -- Array of reason strings
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+COINJOIN_CACHE_INDEXES_SQL = """
+-- Index for CoinJoin filtering (most common query)
+CREATE INDEX IF NOT EXISTS idx_coinjoin_is ON coinjoin_cache(is_coinjoin);
+
+-- Index for protocol type analysis
+CREATE INDEX IF NOT EXISTS idx_coinjoin_type ON coinjoin_cache(coinjoin_type);
+
+-- Index for high-confidence detections
+CREATE INDEX IF NOT EXISTS idx_coinjoin_confidence ON coinjoin_cache(confidence);
+"""
+
 
 def init_metrics_db(db_path: str = DEFAULT_DB_PATH) -> bool:
     """
@@ -178,6 +237,22 @@ def init_metrics_db(db_path: str = DEFAULT_DB_PATH) -> bool:
         # Create backtest_results indexes
         conn.execute(BACKTEST_RESULTS_INDEXES_SQL)
         print("Created/verified backtest_results indexes")
+
+        # Create address_clusters table (spec-013)
+        conn.execute(ADDRESS_CLUSTERS_TABLE_SQL)
+        print("Created/verified address_clusters table")
+
+        # Create address_clusters indexes
+        conn.execute(ADDRESS_CLUSTERS_INDEXES_SQL)
+        print("Created/verified address_clusters indexes")
+
+        # Create coinjoin_cache table (spec-013)
+        conn.execute(COINJOIN_CACHE_TABLE_SQL)
+        print("Created/verified coinjoin_cache table")
+
+        # Create coinjoin_cache indexes
+        conn.execute(COINJOIN_CACHE_INDEXES_SQL)
+        print("Created/verified coinjoin_cache indexes")
 
         # Verify table exists
         result = conn.execute(
