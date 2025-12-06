@@ -126,13 +126,19 @@ def save_metrics_to_db(
         placeholders = ", ".join(["?" for _ in values])
         col_str = ", ".join(columns)
 
+        # R5-1 fix: Check if there are any non-timestamp columns to update
+        update_columns = [c for c in columns if c != "timestamp"]
+        if not update_columns:
+            # Nothing to save besides timestamp - skip silently
+            conn.close()
+            return True
+
         # Use INSERT with ON CONFLICT for upsert behavior
         # Specify timestamp as the conflict target since id is auto-generated
+        update_clause = ", ".join([f"{c} = EXCLUDED.{c}" for c in update_columns])
         conn.execute(
             f"""INSERT INTO metrics ({col_str}) VALUES ({placeholders})
-                ON CONFLICT (timestamp) DO UPDATE SET {
-                ", ".join([f"{c} = EXCLUDED.{c}" for c in columns if c != "timestamp"])
-            }""",
+                ON CONFLICT (timestamp) DO UPDATE SET {update_clause}""",
             values,
         )
         conn.close()
