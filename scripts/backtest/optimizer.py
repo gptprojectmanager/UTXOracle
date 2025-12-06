@@ -45,6 +45,10 @@ def generate_weight_grid(
     if n_signals == 1:
         return [{signal_names[0]: 1.0}]
 
+    # Guard against invalid step values
+    if step <= 0:
+        return []
+
     # Generate all combinations for n-1 signals
     steps = int(1.0 / step) + 1
     weight_values = [i * step for i in range(steps)]
