@@ -65,6 +65,17 @@ except ImportError:
     ADVANCED_METRICS_ENABLED = False
     logging.warning("spec-009 advanced metrics not available")
 
+# Wasserstein Distance Calculator (spec-010) - Distribution Shift Detection
+try:
+    from scripts.metrics.wasserstein import rolling_wasserstein, wasserstein_vote
+
+    WASSERSTEIN_ENABLED = True
+except ImportError:
+    WASSERSTEIN_ENABLED = False
+    logging.warning(
+        "spec-010 wasserstein not available - distribution shift detection disabled"
+    )
+
 # Derivatives Integration (spec-008) - Funding Rate and Open Interest from LiquidationHeatmap
 try:
     from scripts.derivatives import get_liq_connection, close_connection
@@ -1697,7 +1708,29 @@ def main():
                         f"vote: {symbolic_result.symbolic_vote:+.3f})"
                     )
 
-                # US4: Enhanced 7-Component Fusion (spec-009) + Derivatives (spec-008)
+                # Spec-010: Wasserstein Distribution Shift Detection
+                wasserstein_result = None
+                w_vote = None
+                if WASSERSTEIN_ENABLED and len(utxo_values) >= 288:  # 2 windows of 144
+                    try:
+                        wasserstein_result = rolling_wasserstein(
+                            values=utxo_values,  # B1 fix: series → values
+                            window_size=144,  # 24h of blocks (144 blocks/day)
+                            step_size=6,  # 1h steps (6 blocks/hour)
+                        )
+                        if wasserstein_result.is_valid:
+                            w_vote = (
+                                wasserstein_result.wasserstein_vote
+                            )  # B2 fix: use precomputed vote
+                            logging.info(
+                                f"📊 Wasserstein: W={wasserstein_result.mean_distance:.4f} "
+                                f"(regime: {wasserstein_result.regime_status}, "
+                                f"vote: {w_vote:+.3f})"
+                            )
+                    except Exception as e:
+                        logging.warning(f"Wasserstein calculation failed: {e}")
+
+                # US4: Enhanced 8-Component Fusion (spec-009 + spec-010) + Derivatives (spec-008)
                 if whale_signal and mc_result:
                     whale_vote = _calculate_whale_vote(
                         net_flow_btc=whale_signal.net_flow_btc,
@@ -1759,6 +1792,7 @@ def main():
                         fractal_vote=fractal_result.fractal_vote
                         if fractal_result and fractal_result.is_valid
                         else None,
+                        wasserstein_vote=w_vote,  # spec-010 distribution shift
                         funding_vote=funding_vote,  # spec-008 derivatives
                         oi_vote=oi_vote,  # spec-008 derivatives
                         n_samples=1000,
@@ -1806,7 +1840,7 @@ def main():
         if not args.dry_run:
             save_to_duckdb(data, config["DUCKDB_PATH"], config["DUCKDB_BACKUP_PATH"])
 
-            # Step 5.5: Save spec-007 metrics to metrics table
+            # Step 5.5: Save spec-007 + spec-010 metrics to metrics table
             if METRICS_ENABLED:
                 try:
                     mc_dict = mc_result.to_dict() if mc_result else None
@@ -1815,18 +1849,31 @@ def main():
                     )
                     tv_dict = tx_vol_result.to_dict() if tx_vol_result else None
 
+                    # Wasserstein data (spec-010)
+                    ws_dict = None
+                    if wasserstein_result and wasserstein_result.is_valid:
+                        ws_dict = {
+                            "mean_distance": wasserstein_result.mean_distance,
+                            "mean_normalized_distance": wasserstein_result.mean_normalized_distance,
+                            "dominant_shift_direction": wasserstein_result.dominant_shift_direction,
+                            "regime_status": wasserstein_result.regime_status,
+                            "wasserstein_vote": w_vote,
+                            "is_valid": wasserstein_result.is_valid,
+                        }
+
                     if save_metrics_to_db(
                         timestamp=current_time,
                         monte_carlo=mc_dict,
                         active_addresses=aa_dict,
                         tx_volume=tv_dict,
+                        wasserstein=ws_dict,
                         db_path=config["DUCKDB_PATH"],
                     ):
-                        logging.info("✅ Spec-007 metrics saved to metrics table")
+                        logging.info("✅ Spec-007/010 metrics saved to metrics table")
                     else:
-                        logging.warning("⚠️ Failed to save spec-007 metrics")
+                        logging.warning("⚠️ Failed to save spec-007/010 metrics")
                 except Exception as e:
-                    logging.warning(f"Spec-007 metrics save failed: {e}")
+                    logging.warning(f"Spec-007/010 metrics save failed: {e}")
 
             # Step 5.6: Emit webhook alerts (spec-011)
             if ALERTS_ENABLED:

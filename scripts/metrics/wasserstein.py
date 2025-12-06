@@ -450,9 +450,11 @@ def rolling_wasserstein(
             distances=[],
             timestamps=[],
             mean_distance=0.0,
+            mean_normalized_distance=0.0,  # B3 fix
             max_distance=0.0,
             min_distance=0.0,
             std_distance=0.0,
+            dominant_shift_direction="NONE",  # B4 fix
             sustained_shift_detected=False,
             shift_windows=[],
             regime_status="STABLE",
@@ -526,13 +528,28 @@ def rolling_wasserstein(
             most_common_count = max(direction_counts.values())
             vote_confidence = most_common_count / len(recent_directions)
 
+    # B4 fix: Compute dominant shift direction from all directions
+    dominant_direction = "NONE"
+    if directions:
+        all_direction_counts = {}
+        for d in directions:
+            all_direction_counts[d] = all_direction_counts.get(d, 0) + 1
+        # Find most common direction (excluding NONE if others exist)
+        non_none_counts = {k: v for k, v in all_direction_counts.items() if k != "NONE"}
+        if non_none_counts:
+            dominant_direction = max(non_none_counts, key=non_none_counts.get)
+        elif all_direction_counts:
+            dominant_direction = max(all_direction_counts, key=all_direction_counts.get)
+
     return RollingWassersteinResult(
         distances=distances,
         timestamps=timestamps,
         mean_distance=mean_dist,
+        mean_normalized_distance=mean_dist,  # B3 fix: distances are already normalized
         max_distance=max_dist,
         min_distance=min_dist,
         std_distance=std_dist,
+        dominant_shift_direction=dominant_direction,  # B4 fix
         sustained_shift_detected=sustained,
         shift_windows=shift_windows,
         regime_status=regime_status,

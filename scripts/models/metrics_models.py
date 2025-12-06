@@ -471,9 +471,11 @@ class RollingWassersteinResult:
         distances: Rolling W values
         timestamps: Timestamp for each W value
         mean_distance: Average W over period
+        mean_normalized_distance: Average normalized W (0-1 scale)
         max_distance: Peak W (potential regime change)
         min_distance: Minimum W (stable period)
         std_distance: Stability measure
+        dominant_shift_direction: Most common shift direction across windows
         sustained_shift_detected: True if 3+ consecutive high-W
         shift_windows: Indices where W > threshold
         regime_status: "STABLE" | "TRANSITIONING" | "SHIFTED"
@@ -490,9 +492,11 @@ class RollingWassersteinResult:
     distances: list
     timestamps: list
     mean_distance: float
+    mean_normalized_distance: float  # B3 fix: added for DB compatibility
     max_distance: float
     min_distance: float
     std_distance: float
+    dominant_shift_direction: str  # B4 fix: "CONCENTRATION" | "DISPERSION" | "NONE"
     sustained_shift_detected: bool
     shift_windows: list
     regime_status: str  # "STABLE" | "TRANSITIONING" | "SHIFTED"
@@ -517,6 +521,12 @@ class RollingWassersteinResult:
             raise ValueError(
                 f"regime_status must be one of {valid_statuses}: {self.regime_status}"
             )
+        valid_directions = {"CONCENTRATION", "DISPERSION", "NONE"}
+        if self.dominant_shift_direction not in valid_directions:
+            raise ValueError(
+                f"dominant_shift_direction must be one of {valid_directions}: "
+                f"{self.dominant_shift_direction}"
+            )
         if not -1.0 <= self.wasserstein_vote <= 1.0:
             raise ValueError(
                 f"wasserstein_vote must be in [-1, 1]: {self.wasserstein_vote}"
@@ -531,9 +541,11 @@ class RollingWassersteinResult:
                 for t in self.timestamps
             ],
             "mean_distance": self.mean_distance,
+            "mean_normalized_distance": self.mean_normalized_distance,
             "max_distance": self.max_distance,
             "min_distance": self.min_distance,
             "std_distance": self.std_distance,
+            "dominant_shift_direction": self.dominant_shift_direction,
             "sustained_shift_detected": self.sustained_shift_detected,
             "shift_windows": self.shift_windows,
             "regime_status": self.regime_status,
