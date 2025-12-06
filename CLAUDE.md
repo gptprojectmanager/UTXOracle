@@ -177,12 +177,36 @@ Statistical analysis extensions providing +40% signal accuracy improvement:
   * `PowerLawResult`: τ, xmin, KS stats, regime
   * `SymbolicDynamicsResult`: H, C, pattern type
   * `FractalDimensionResult`: D, R², structure
-  * `EnhancedFusionResult`: 7-component fusion result
+  * `EnhancedFusionResult`: 8-component fusion result (includes Wasserstein)
 
 - **API Endpoint** (`/api/metrics/advanced`)
   * Real-time computation from latest block data
   * Returns Power Law, Symbolic Dynamics, Fractal Dimension, Enhanced Fusion
   * 501 if modules not installed, 503 if electrs unavailable
+
+#### Wasserstein Distance Module (spec-010)
+
+Distribution shift detection using Earth Mover's Distance (Wasserstein-1):
+
+- **Wasserstein Calculator** (`scripts/metrics/wasserstein.py`)
+  * O(n log n) algorithm via sorted quantile matching
+  * Rolling window analysis (144 blocks/24h, 6 block steps)
+  * Shift direction: CONCENTRATION (bullish) | DISPERSION (bearish) | NONE
+  * Regime classification: STABLE | TRANSITIONING | SHIFTED
+  * Signal: Distribution-based momentum detection
+
+- **Data Models** (`scripts/models/metrics_models.py`)
+  * `WassersteinResult`: Single-pair distance with direction
+  * `RollingWassersteinResult`: Time series with regime status
+
+- **API Endpoints**
+  * `/api/metrics/wasserstein` - Latest distance and regime
+  * `/api/metrics/wasserstein/history` - Historical with summary stats
+  * `/api/metrics/wasserstein/regime` - Trading recommendation
+
+- **Enhanced Fusion Integration**
+  * 8th component with 0.08 weight
+  * Automatic weight renormalization when unavailable
 
 #### Derivatives Historical Module (spec-008)
 
@@ -306,7 +330,7 @@ Address clustering and CoinJoin detection for whale identification:
 | spec-007 | metrics/ | ✅ Complete | 7 |
 | spec-008 | derivatives/ | ✅ Complete | 4 |
 | spec-009 | metrics/ (advanced) | ✅ Complete | +3 |
-| spec-010 | wasserstein/ | ❌ Not Started | 0 |
+| spec-010 | metrics/wasserstein | ✅ Complete | 1 |
 | spec-011 | alerts/ | ✅ Complete | 4 |
 | spec-012 | backtest/ | ✅ Complete | 5 |
 | spec-013 | clustering/ | ✅ Complete | 5 |
@@ -679,7 +703,7 @@ tests/                              # Test suite (pytest)
 
 ## Agent & Skill Architecture
 
-### **Subagents** (6) - Complex Reasoning
+### **Subagents** (7) - Complex Reasoning
 Specialized agents for deep domain expertise and multi-step workflows.
 
 | Agent | Task | Responsibility | Token Cost |
@@ -690,8 +714,60 @@ Specialized agents for deep domain expertise and multi-step workflows.
 | data-streamer | 04 | FastAPI WebSocket server | ~6,000 |
 | visualization-renderer | 05 | Canvas 2D + Three.js WebGL | ~7,000 |
 | tdd-guard | - | TDD enforcement, coverage validation | ~5,000 |
+| **alpha-debug** | - | AlphaEvolve-style iterative bug hunter | ~6,000 |
 
 **Usage**: Invoke via Claude Code for complex implementation tasks.
+
+### **Alpha Debug** - Evolutionary Bug Hunting
+
+AlphaEvolve-inspired iterative debugging system that finds bugs even when tests pass.
+
+**Auto-Triggering** (Stop Hook):
+- Triggers automatically when Claude stops after implementation phases
+- Detects: keywords (implement, complete, fix), >20 lines changed, 3+ files modified
+- Calculates optimal rounds based on complexity (2-10 range)
+
+**Invocation Patterns**:
+```
+# Automatic (after implementation - no action needed!)
+Claude finishes → Stop hook detects → alpha-debug spawns automatically
+
+# Manual override
+"run alpha-debug on wasserstein implementation"
+"alpha-debug 5 rounds before commit"
+"esegui N rounds di verifica e ricerca bug"
+```
+
+**Dynamic Rounds** (complexity-based):
+| Lines Changed | Files | Rounds |
+|---------------|-------|--------|
+| < 50 | 1-2 | 2-3 |
+| 50-150 | 2-4 | 3-4 |
+| 150-300 | 4-6 | 5-6 |
+| > 300 | 6+ | 7-10 |
+
+**Self-Assessment** (each round):
+- Subagent evaluates confidence level (0-100%)
+- Decides CONTINUE/STOP based on unanalyzed areas
+- Stops early if confidence >= 95%
+
+**Stop Conditions**:
+1. MAX_ROUNDS reached (dynamic, 2-10)
+2. 2 consecutive clean rounds (0 bugs)
+3. Self-assessment STOP with confidence >= 90%
+4. Tests failing → human intervention
+5. Critical issue → BLOCKED
+
+**Bug Categories Hunted**:
+- **A**: Logic errors (off-by-one, wrong comparisons)
+- **B**: Edge cases (empty, boundary, large inputs)
+- **C**: Integration issues (API contracts, type mismatches)
+- **D**: Code smells (unused vars, complexity)
+
+**Files**:
+- `.claude/agents/alpha-debug.md` - Subagent definition
+- `claude-hooks-shared/hooks/productivity/auto-alpha-debug.py` - Stop hook (auto-trigger)
+- `claude-hooks-shared/hooks/productivity/alpha-debug-loop.py` - SubagentStop hook (loop control)
 
 ### **Skills** (4) - Template-Driven Automation
 Lightweight templates for repetitive operations with 60-83% token savings.
