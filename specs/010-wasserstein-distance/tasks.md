@@ -24,10 +24,10 @@
 
 **Purpose**: Project structure and model definitions
 
-- [ ] T001 Add WassersteinResult dataclass to scripts/models/metrics_models.py
-- [ ] T002 [P] Add RollingWassersteinResult dataclass to scripts/models/metrics_models.py
-- [ ] T003 [P] Create empty scripts/metrics/wasserstein.py module with docstring
-- [ ] T004 [P] Create empty tests/test_wasserstein.py with pytest imports
+- [X] T001 Add WassersteinResult dataclass to scripts/models/metrics_models.py
+- [X] T002 [P] Add RollingWassersteinResult dataclass to scripts/models/metrics_models.py
+- [X] T003 [P] Create empty scripts/metrics/wasserstein.py module with docstring
+- [X] T004 [P] Create empty tests/test_wasserstein.py with pytest imports
 
 ---
 
@@ -37,9 +37,9 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Implement `_interpolate_quantiles()` helper in scripts/metrics/wasserstein.py
-- [ ] T006 [P] Add configuration constants (thresholds, defaults) in scripts/metrics/wasserstein.py
-- [ ] T007 [P] Add type hints and imports for all metric models
+- [X] T005 Implement `_interpolate_quantiles()` helper in scripts/metrics/wasserstein.py
+- [X] T006 [P] Add configuration constants (thresholds, defaults) in scripts/metrics/wasserstein.py
+- [X] T007 [P] Add type hints and imports for all metric models
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -53,19 +53,19 @@
 
 ### Tests for User Story 1 (TDD RED phase)
 
-- [ ] T008 [P] [US1] Write test_wasserstein_identical_distributions() in tests/test_wasserstein.py - expect W=0.0
-- [ ] T009 [P] [US1] Write test_wasserstein_shifted_uniform() in tests/test_wasserstein.py - expect W=0.5 for shift
-- [ ] T010 [P] [US1] Write test_wasserstein_direction_concentration() in tests/test_wasserstein.py
-- [ ] T011 [P] [US1] Write test_wasserstein_direction_dispersion() in tests/test_wasserstein.py
-- [ ] T012 [P] [US1] Write test_wasserstein_insufficient_samples() in tests/test_wasserstein.py - expect is_valid=False
+- [X] T008 [P] [US1] Write test_wasserstein_identical_distributions() in tests/test_wasserstein.py - expect W=0.0
+- [X] T009 [P] [US1] Write test_wasserstein_shifted_uniform() in tests/test_wasserstein.py - expect W=0.5 for shift
+- [X] T010 [P] [US1] Write test_wasserstein_direction_concentration() in tests/test_wasserstein.py
+- [X] T011 [P] [US1] Write test_wasserstein_direction_dispersion() in tests/test_wasserstein.py
+- [X] T012 [P] [US1] Write test_wasserstein_insufficient_samples() in tests/test_wasserstein.py - expect is_valid=False
 
 ### Implementation for User Story 1 (TDD GREEN phase)
 
-- [ ] T013 [US1] Implement `wasserstein_1d()` core algorithm in scripts/metrics/wasserstein.py
-- [ ] T014 [US1] Implement `_detect_shift_direction()` helper in scripts/metrics/wasserstein.py
-- [ ] T015 [US1] Implement `_normalize_distance()` helper in scripts/metrics/wasserstein.py
-- [ ] T016 [US1] Implement `calculate_wasserstein()` returning WassersteinResult in scripts/metrics/wasserstein.py
-- [ ] T017 [US1] Run tests - verify all T008-T012 pass
+- [X] T013 [US1] Implement `wasserstein_1d()` core algorithm in scripts/metrics/wasserstein.py
+- [X] T014 [US1] Implement `_detect_shift_direction()` helper in scripts/metrics/wasserstein.py
+- [X] T015 [US1] Implement `_normalize_distance()` helper in scripts/metrics/wasserstein.py
+- [X] T016 [US1] Implement `calculate_wasserstein()` returning WassersteinResult in scripts/metrics/wasserstein.py
+- [X] T017 [US1] Run tests - verify all T008-T012 pass
 
 **Checkpoint**: Single-pair Wasserstein calculation functional and tested
 
@@ -79,19 +79,19 @@
 
 ### Tests for User Story 2 (TDD RED phase)
 
-- [ ] T018 [P] [US2] Write test_rolling_wasserstein_stable() in tests/test_wasserstein.py - expect low variance
-- [ ] T019 [P] [US2] Write test_rolling_wasserstein_regime_change() in tests/test_wasserstein.py - expect peak at change
-- [ ] T020 [P] [US2] Write test_rolling_sustained_shift() in tests/test_wasserstein.py - 3+ consecutive detection
-- [ ] T021 [P] [US2] Write test_rolling_regime_status_transitions() in tests/test_wasserstein.py
+- [X] T018 [P] [US2] Write test_rolling_wasserstein_stable() in tests/test_wasserstein.py - expect low variance
+- [X] T019 [P] [US2] Write test_rolling_wasserstein_regime_change() in tests/test_wasserstein.py - expect peak at change
+- [X] T020 [P] [US2] Write test_rolling_sustained_shift() in tests/test_wasserstein.py - 3+ consecutive detection
+- [X] T021 [P] [US2] Write test_rolling_regime_status_transitions() in tests/test_wasserstein.py
 
 ### Implementation for User Story 2 (TDD GREEN phase)
 
-- [ ] T022 [US2] Implement `_create_windows()` helper in scripts/metrics/wasserstein.py
-- [ ] T023 [US2] Implement `_detect_sustained_shift()` helper in scripts/metrics/wasserstein.py
-- [ ] T024 [US2] Implement `_classify_regime_status()` helper in scripts/metrics/wasserstein.py
-- [ ] T025 [US2] Implement `rolling_wasserstein()` returning RollingWassersteinResult in scripts/metrics/wasserstein.py
-- [ ] T026 [US2] Implement `wasserstein_vote()` signal calculation in scripts/metrics/wasserstein.py
-- [ ] T027 [US2] Run tests - verify all T018-T021 pass
+- [X] T022 [US2] Implement `_create_windows()` helper in scripts/metrics/wasserstein.py
+- [X] T023 [US2] Implement `_detect_sustained_shift()` helper in scripts/metrics/wasserstein.py
+- [X] T024 [US2] Implement `_classify_regime_status()` helper in scripts/metrics/wasserstein.py
+- [X] T025 [US2] Implement `rolling_wasserstein()` returning RollingWassersteinResult in scripts/metrics/wasserstein.py
+- [X] T026 [US2] Implement `wasserstein_vote()` signal calculation in scripts/metrics/wasserstein.py
+- [X] T027 [US2] Run tests - verify all T018-T021 pass
 
 **Checkpoint**: Rolling window analysis functional, regime detection working
 
@@ -105,17 +105,17 @@
 
 ### Tests for User Story 3 (TDD RED phase)
 
-- [ ] T028 [P] [US3] Write test_enhanced_fusion_with_wasserstein() in tests/test_wasserstein.py
-- [ ] T029 [P] [US3] Write test_fusion_weights_sum_to_one() in tests/test_wasserstein.py
-- [ ] T030 [P] [US3] Write test_fusion_without_wasserstein_backward_compatible() in tests/test_wasserstein.py
+- [X] T028 [P] [US3] Write test_enhanced_fusion_with_wasserstein() in tests/test_wasserstein.py
+- [X] T029 [P] [US3] Write test_fusion_weights_sum_to_one() in tests/test_wasserstein.py
+- [X] T030 [P] [US3] Write test_fusion_without_wasserstein_backward_compatible() in tests/test_wasserstein.py
 
 ### Implementation for User Story 3 (TDD GREEN phase)
 
-- [ ] T031 [US3] Update EnhancedFusionResult in scripts/models/metrics_models.py - add wasserstein fields
-- [ ] T032 [US3] Update ENHANCED_WEIGHTS in scripts/metrics/monte_carlo_fusion.py for 8 components
-- [ ] T033 [US3] Update `enhanced_fusion()` in scripts/metrics/monte_carlo_fusion.py to accept wasserstein_vote
-- [ ] T034 [US3] Run tests - verify all T028-T030 pass
-- [ ] T035 [US3] Verify existing spec-009 tests still pass (no regression)
+- [X] T031 [US3] Update EnhancedFusionResult in scripts/models/metrics_models.py - add wasserstein fields
+- [X] T032 [US3] Update ENHANCED_WEIGHTS in scripts/metrics/monte_carlo_fusion.py for 8 components
+- [X] T033 [US3] Update `enhanced_fusion()` in scripts/metrics/monte_carlo_fusion.py to accept wasserstein_vote
+- [X] T034 [US3] Run tests - verify all T028-T030 pass
+- [X] T035 [US3] Verify existing spec-009 tests still pass (no regression)
 
 **Checkpoint**: Wasserstein integrated into fusion, backward compatible
 

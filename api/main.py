@@ -1152,6 +1152,218 @@ async def get_advanced_metrics():
 
 
 # =============================================================================
+# spec-010: Wasserstein Distance API Endpoints
+# =============================================================================
+
+
+@app.get("/api/metrics/wasserstein")
+async def get_wasserstein_latest():
+    """
+    Get latest Wasserstein metrics (spec-010).
+
+    Returns the most recent Wasserstein distance calculation and regime status.
+    """
+    import duckdb
+
+    conn = None
+    try:
+        conn = duckdb.connect(DB_PATH, read_only=True)
+
+        # Query latest Wasserstein metrics from metrics table
+        result = conn.execute(
+            """
+            SELECT
+                timestamp,
+                wasserstein_distance,
+                wasserstein_normalized,
+                wasserstein_shift_direction,
+                wasserstein_regime_status,
+                wasserstein_vote,
+                wasserstein_is_valid
+            FROM metrics
+            WHERE wasserstein_distance IS NOT NULL
+            ORDER BY timestamp DESC
+            LIMIT 1
+            """
+        ).fetchone()
+
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="No Wasserstein metrics available. Run daily_analysis.py first.",
+            )
+
+        return {
+            "timestamp": result[0].isoformat() if result[0] else None,
+            "distance": result[1],
+            "distance_normalized": result[2],
+            "shift_direction": result[3] or "NONE",
+            "regime_status": result[4] or "STABLE",
+            "wasserstein_vote": result[5] or 0.0,
+            "is_valid": result[6] if result[6] is not None else False,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error fetching Wasserstein metrics: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.get("/api/metrics/wasserstein/history")
+async def get_wasserstein_history(
+    hours: int = Query(
+        default=24, ge=1, le=168, description="Hours of history to return"
+    ),
+    limit: int = Query(default=100, ge=1, le=1000, description="Maximum data points"),
+):
+    """
+    Get historical Wasserstein distances (spec-010).
+
+    Returns rolling Wasserstein distances for the specified period.
+    """
+    import duckdb
+
+    conn = None
+    try:
+        conn = duckdb.connect(DB_PATH, read_only=True)
+
+        cutoff = datetime.now() - timedelta(hours=hours)
+
+        results = conn.execute(
+            f"""
+            SELECT
+                timestamp,
+                wasserstein_distance,
+                wasserstein_shift_direction,
+                CASE WHEN wasserstein_distance > 0.10 THEN true ELSE false END as is_significant
+            FROM metrics
+            WHERE wasserstein_distance IS NOT NULL
+              AND timestamp >= ?
+            ORDER BY timestamp DESC
+            LIMIT {limit}
+            """,
+            [cutoff],
+        ).fetchall()
+
+        data = [
+            {
+                "timestamp": r[0].isoformat() if r[0] else None,
+                "distance": r[1],
+                "shift_direction": r[2] or "NONE",
+                "is_significant": r[3],
+            }
+            for r in results
+        ]
+
+        # Compute summary statistics
+        distances = [r[1] for r in results if r[1] is not None]
+
+        summary = {
+            "mean_distance": sum(distances) / len(distances) if distances else 0.0,
+            "max_distance": max(distances) if distances else 0.0,
+            "min_distance": min(distances) if distances else 0.0,
+            "std_distance": 0.0,
+            "sustained_shifts": sum(1 for d in data if d["is_significant"]),
+            "period_hours": hours,
+        }
+
+        # Compute std if we have enough data
+        if len(distances) > 1:
+            mean = summary["mean_distance"]
+            variance = sum((d - mean) ** 2 for d in distances) / (len(distances) - 1)
+            summary["std_distance"] = variance**0.5
+
+        return {"data": data, "summary": summary}
+
+    except Exception as e:
+        logging.error(f"Error fetching Wasserstein history: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.get("/api/metrics/wasserstein/regime")
+async def get_wasserstein_regime():
+    """
+    Get current regime status (spec-010).
+
+    Returns simplified regime status for trading decisions.
+    """
+    import duckdb
+
+    conn = None
+    try:
+        conn = duckdb.connect(DB_PATH, read_only=True)
+
+        # Get recent Wasserstein metrics to determine regime
+        results = conn.execute(
+            """
+            SELECT
+                wasserstein_distance,
+                wasserstein_shift_direction,
+                wasserstein_regime_status,
+                timestamp
+            FROM metrics
+            WHERE wasserstein_distance IS NOT NULL
+            ORDER BY timestamp DESC
+            LIMIT 10
+            """
+        ).fetchall()
+
+        if not results:
+            raise HTTPException(
+                status_code=404,
+                detail="No Wasserstein metrics available.",
+            )
+
+        # Determine overall status
+        latest = results[0]
+        status = latest[2] or "STABLE"
+
+        # Calculate confidence based on consistency
+        statuses = [r[2] for r in results if r[2]]
+        if statuses:
+            status_counts = {}
+            for s in statuses:
+                status_counts[s] = status_counts.get(s, 0) + 1
+            confidence = max(status_counts.values()) / len(statuses)
+        else:
+            confidence = 0.5
+
+        # Generate recommendation
+        recommendations = {
+            "STABLE": "No significant distribution shift detected. Current strategy valid.",
+            "TRANSITIONING": "Distribution shift in progress. Monitor closely for confirmation.",
+            "SHIFTED": "Significant regime change detected. Consider adjusting strategy.",
+        }
+
+        return {
+            "status": status,
+            "confidence": round(confidence, 2),
+            "recommendation": recommendations.get(status, "Unknown status."),
+            "last_shift_timestamp": (
+                results[0][3].isoformat()
+                if results[0][3] and status != "STABLE"
+                else None
+            ),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error fetching regime status: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if conn:
+            conn.close()
+
+
+# =============================================================================
 # Service Connectivity Helper Functions
 # =============================================================================
 

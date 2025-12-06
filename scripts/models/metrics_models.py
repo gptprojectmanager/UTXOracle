@@ -327,7 +327,7 @@ class FractalDimensionResult:
 @dataclass
 class EnhancedFusionResult:
     """
-    Result of enhanced Monte Carlo signal fusion with 7 components.
+    Result of enhanced Monte Carlo signal fusion with 8 components.
 
     Extends spec-007 MonteCarloFusionResult with:
     - Power Law vote (spec-009)
@@ -335,6 +335,7 @@ class EnhancedFusionResult:
     - Fractal Dimension vote (spec-009)
     - Funding Rate vote (spec-008)
     - Open Interest vote (spec-008)
+    - Wasserstein vote (spec-010)
     """
 
     # Base Monte Carlo fields
@@ -355,15 +356,17 @@ class EnhancedFusionResult:
     power_law_vote: Optional[float] = None
     symbolic_vote: Optional[float] = None
     fractal_vote: Optional[float] = None
+    wasserstein_vote: Optional[float] = None  # spec-010
 
-    # Component weights
-    whale_weight: float = 0.25
-    utxo_weight: float = 0.15
-    funding_weight: float = 0.15
-    oi_weight: float = 0.10
-    power_law_weight: float = 0.10
-    symbolic_weight: float = 0.15
-    fractal_weight: float = 0.10
+    # Component weights (updated for 8 components, sum = 1.0)
+    whale_weight: float = 0.23
+    utxo_weight: float = 0.14
+    funding_weight: float = 0.14
+    oi_weight: float = 0.09
+    power_law_weight: float = 0.09
+    symbolic_weight: float = 0.14
+    fractal_weight: float = 0.09
+    wasserstein_weight: float = 0.08  # spec-010
 
     # Metadata
     components_available: int = 0
@@ -383,4 +386,175 @@ class EnhancedFusionResult:
             "distribution_type": self.distribution_type,
             "components_available": self.components_available,
             "components_used": self.components_used,
+        }
+
+
+# =============================================================================
+# Spec-010: Wasserstein Distance Calculator Dataclasses
+# =============================================================================
+
+
+@dataclass
+class WassersteinResult:
+    """
+    Result of Wasserstein distance calculation between two distributions.
+
+    The Wasserstein-1 distance (Earth Mover's Distance) measures the minimum
+    cost to transform one distribution into another. For 1D distributions,
+    this is computed via CDF integration.
+
+    Attributes:
+        distance: W_1 distance (unnormalized)
+        distance_normalized: W_1 / max(range) for scale-invariance
+        window_1_size: Sample count in first window
+        window_2_size: Sample count in second window
+        window_1_mean: Mean of first distribution
+        window_2_mean: Mean of second distribution
+        window_1_std: Std of first distribution
+        window_2_std: Std of second distribution
+        shift_direction: "CONCENTRATION" | "DISPERSION" | "NONE"
+        is_significant: True if distance > threshold
+        is_valid: True if both windows have sufficient samples
+        min_samples: Minimum samples required (default: 50)
+    """
+
+    distance: float
+    distance_normalized: float
+    window_1_size: int
+    window_2_size: int
+    window_1_mean: float
+    window_2_mean: float
+    window_1_std: float
+    window_2_std: float
+    shift_direction: str  # "CONCENTRATION" | "DISPERSION" | "NONE"
+    is_significant: bool
+    is_valid: bool
+    min_samples: int = 50
+    timestamp: datetime = field(default_factory=datetime.utcnow)
+
+    def __post_init__(self):
+        """Validate Wasserstein result fields."""
+        if self.distance < 0:
+            raise ValueError(f"distance must be >= 0: {self.distance}")
+        valid_directions = {"CONCENTRATION", "DISPERSION", "NONE"}
+        if self.shift_direction not in valid_directions:
+            raise ValueError(
+                f"shift_direction must be one of {valid_directions}: {self.shift_direction}"
+            )
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "distance": self.distance,
+            "distance_normalized": self.distance_normalized,
+            "window_1_size": self.window_1_size,
+            "window_2_size": self.window_2_size,
+            "window_1_mean": self.window_1_mean,
+            "window_2_mean": self.window_2_mean,
+            "window_1_std": self.window_1_std,
+            "window_2_std": self.window_2_std,
+            "shift_direction": self.shift_direction,
+            "is_significant": self.is_significant,
+            "is_valid": self.is_valid,
+        }
+
+
+@dataclass
+class RollingWassersteinResult:
+    """
+    Result of rolling Wasserstein analysis over time series.
+
+    Computes Wasserstein distances between consecutive windows to detect
+    regime shifts in UTXO value distributions over time.
+
+    Attributes:
+        distances: Rolling W values
+        timestamps: Timestamp for each W value
+        mean_distance: Average W over period
+        mean_normalized_distance: Average normalized W (0-1 scale)
+        max_distance: Peak W (potential regime change)
+        min_distance: Minimum W (stable period)
+        std_distance: Stability measure
+        dominant_shift_direction: Most common shift direction across windows
+        sustained_shift_detected: True if 3+ consecutive high-W
+        shift_windows: Indices where W > threshold
+        regime_status: "STABLE" | "TRANSITIONING" | "SHIFTED"
+        wasserstein_vote: Signal vote (-1 to +1)
+        vote_confidence: Based on consistency of direction
+        window_size: Blocks per window
+        step_size: Blocks between windows
+        threshold: Shift detection threshold
+        total_samples: Total values analyzed
+        windows_analyzed: Number of window pairs compared
+        is_valid: True if sufficient data
+    """
+
+    distances: list
+    timestamps: list
+    mean_distance: float
+    mean_normalized_distance: float  # B3 fix: added for DB compatibility
+    max_distance: float
+    min_distance: float
+    std_distance: float
+    dominant_shift_direction: str  # B4 fix: "CONCENTRATION" | "DISPERSION" | "NONE"
+    sustained_shift_detected: bool
+    shift_windows: list
+    regime_status: str  # "STABLE" | "TRANSITIONING" | "SHIFTED"
+    wasserstein_vote: float
+    vote_confidence: float
+    window_size: int
+    step_size: int
+    threshold: float
+    total_samples: int
+    windows_analyzed: int
+    is_valid: bool
+
+    def __post_init__(self):
+        """Validate rolling Wasserstein result fields."""
+        if len(self.distances) != len(self.timestamps):
+            raise ValueError(
+                f"distances and timestamps length mismatch: "
+                f"{len(self.distances)} vs {len(self.timestamps)}"
+            )
+        valid_statuses = {"STABLE", "TRANSITIONING", "SHIFTED"}
+        if self.regime_status not in valid_statuses:
+            raise ValueError(
+                f"regime_status must be one of {valid_statuses}: {self.regime_status}"
+            )
+        valid_directions = {"CONCENTRATION", "DISPERSION", "NONE"}
+        if self.dominant_shift_direction not in valid_directions:
+            raise ValueError(
+                f"dominant_shift_direction must be one of {valid_directions}: "
+                f"{self.dominant_shift_direction}"
+            )
+        if not -1.0 <= self.wasserstein_vote <= 1.0:
+            raise ValueError(
+                f"wasserstein_vote must be in [-1, 1]: {self.wasserstein_vote}"
+            )
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "distances": self.distances,
+            "timestamps": [
+                t.isoformat() if hasattr(t, "isoformat") else str(t)
+                for t in self.timestamps
+            ],
+            "mean_distance": self.mean_distance,
+            "mean_normalized_distance": self.mean_normalized_distance,
+            "max_distance": self.max_distance,
+            "min_distance": self.min_distance,
+            "std_distance": self.std_distance,
+            "dominant_shift_direction": self.dominant_shift_direction,
+            "sustained_shift_detected": self.sustained_shift_detected,
+            "shift_windows": self.shift_windows,
+            "regime_status": self.regime_status,
+            "wasserstein_vote": self.wasserstein_vote,
+            "vote_confidence": self.vote_confidence,
+            "window_size": self.window_size,
+            "step_size": self.step_size,
+            "threshold": self.threshold,
+            "total_samples": self.total_samples,
+            "windows_analyzed": self.windows_analyzed,
+            "is_valid": self.is_valid,
         }

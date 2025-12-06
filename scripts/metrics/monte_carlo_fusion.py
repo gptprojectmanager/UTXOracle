@@ -194,18 +194,20 @@ def determine_action(
 
 
 # =============================================================================
-# spec-009: Enhanced 7-Component Fusion
+# spec-009 + spec-010: Enhanced 8-Component Fusion
 # =============================================================================
 
 # Default weights for enhanced fusion (sum = 1.0)
+# Updated for 8 components including Wasserstein (spec-010)
 ENHANCED_WEIGHTS = {
-    "whale": 0.25,
-    "utxo": 0.15,
-    "funding": 0.15,
-    "oi": 0.10,
-    "power_law": 0.10,
-    "symbolic": 0.15,
-    "fractal": 0.10,
+    "whale": 0.23,  # Primary signal (was 0.25)
+    "utxo": 0.14,  # Price signal (was 0.15)
+    "funding": 0.14,  # Derivatives (was 0.15)
+    "oi": 0.09,  # Derivatives (was 0.10)
+    "power_law": 0.09,  # Regime (was 0.10)
+    "symbolic": 0.14,  # Temporal (was 0.15)
+    "fractal": 0.09,  # Structure (was 0.10)
+    "wasserstein": 0.08,  # Distribution shift (NEW spec-010)
 }
 
 
@@ -219,14 +221,15 @@ def enhanced_fusion(
     power_law_vote: Optional[float] = None,
     symbolic_vote: Optional[float] = None,
     fractal_vote: Optional[float] = None,
+    wasserstein_vote: Optional[float] = None,  # spec-010
     n_samples: int = 1000,
     weights: Optional[dict[str, float]] = None,
 ) -> EnhancedFusionResult:
     """
-    Enhanced Monte Carlo fusion with 7 signal components.
+    Enhanced Monte Carlo fusion with 8 signal components.
 
     Extends spec-007 with spec-009 advanced metrics (power law, symbolic,
-    fractal) plus spec-008 derivatives (funding, oi).
+    fractal), spec-008 derivatives (funding, oi), and spec-010 Wasserstein.
 
     Components:
     - whale: Whale flow signal (highest weight)
@@ -236,6 +239,7 @@ def enhanced_fusion(
     - power_law: Power law regime signal (spec-009)
     - symbolic: Symbolic dynamics signal (spec-009)
     - fractal: Fractal dimension signal (spec-009)
+    - wasserstein: Distribution shift signal (spec-010)
 
     Args:
         whale_vote: Whale flow vote (-1 to +1), None if unavailable
@@ -247,6 +251,7 @@ def enhanced_fusion(
         power_law_vote: Power law regime vote, None if unavailable
         symbolic_vote: Symbolic dynamics vote, None if unavailable
         fractal_vote: Fractal dimension vote, None if unavailable
+        wasserstein_vote: Wasserstein shift vote, None if unavailable (spec-010)
         n_samples: Number of bootstrap samples (default: 1000)
         weights: Custom weights dict (uses ENHANCED_WEIGHTS if None)
 
@@ -281,6 +286,9 @@ def enhanced_fusion(
     if fractal_vote is not None:
         components["fractal"] = (fractal_vote, 1.0)
         components_used.append("fractal")
+    if wasserstein_vote is not None:
+        components["wasserstein"] = (wasserstein_vote, 1.0)
+        components_used.append("wasserstein")
 
     n_components = len(components)
 
@@ -348,6 +356,7 @@ def enhanced_fusion(
         power_law_vote=power_law_vote,
         symbolic_vote=symbolic_vote,
         fractal_vote=fractal_vote,
+        wasserstein_vote=wasserstein_vote,  # spec-010
         whale_weight=normalized_weights.get("whale", 0.0),
         utxo_weight=normalized_weights.get("utxo", 0.0),
         funding_weight=normalized_weights.get("funding", 0.0),
@@ -355,6 +364,7 @@ def enhanced_fusion(
         power_law_weight=normalized_weights.get("power_law", 0.0),
         symbolic_weight=normalized_weights.get("symbolic", 0.0),
         fractal_weight=normalized_weights.get("fractal", 0.0),
+        wasserstein_weight=normalized_weights.get("wasserstein", 0.0),  # spec-010
         components_available=n_components,
         components_used=components_used,
     )
